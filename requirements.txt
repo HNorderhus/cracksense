@@ -1,0 +1,11 @@
+imageio==2.9.0
+imageio-ffmpeg
+matplotlib==3.3.2
+scikit-image==0.17.2
+scikit-learn==0.23.2
+tqdm==4.54.1
+pyyaml==5.3.1
+trimesh
+imgviz
+open3d
+opencv-python
