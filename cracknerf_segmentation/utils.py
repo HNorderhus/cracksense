@@ -8,6 +8,8 @@ from torch import from_numpy
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics import JaccardIndex
 from skimage.morphology import disk, thin
+import matplotlib.pyplot as plt
+import random
 
 # -------------------------------------------
 # functions to calculate IoU
@@ -91,7 +93,7 @@ def ltIoU(pred, target, tol=5):
       [output_thin[i, ...], target_thin[i, ...]] = transform2lines(pred[i, ...], target[i, ...], tol)
 
     # compute iou
-    iou = JaccardIndex(num_classes=2, task="binary",average=None)(from_numpy(output_thin), from_numpy(target_thin))
+    #iou = JaccardIndex(num_classes=2, task="binary",average=None)(from_numpy(output_thin), from_numpy(target_thin))
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     pred.to(device)
@@ -163,7 +165,7 @@ def save_model(model: torch.nn.Module,
     model_save_path = target_dir_path / model_name
 
     # Save the model state_dict()
-    print(f"[INFO] Saving model to: {model_save_path}")
+    #print(f"[INFO] Saving model to: {model_save_path}")
     torch.save(obj=model.state_dict(),
              f=model_save_path)
 
@@ -242,4 +244,30 @@ def convert_rgb_to_grayscale(input_dir, output_dir):
             # Save the result as a grayscale image with the same name
             output_path = os.path.join(output_directory, filename)
             cv2.imwrite(output_path, result)
+
+
+# -------------------------------------------
+# visualize the augmented images from the dataloader
+# -------------------------------------------
+
+def visualize_data(images, masks):
+    num_samples = len(images)
+    sample_indices = random.sample(range(num_samples), 10)  # Select 10 random samples
+
+    f, axs = plt.subplots(10, 2, figsize=(8, 20))
+
+    for i, idx in enumerate(sample_indices):
+        image = images[idx]
+        mask = masks[idx]
+
+        axs[i, 0].imshow(image)
+        axs[i, 1].imshow(mask, cmap="gray")
+
+        axs[i, 0].axis('off')
+        axs[i, 1].axis('off')
+
+        unique_values = np.unique(mask)
+        axs[i, 1].set_title(f"Unique Values: {unique_values}")
+
+    plt.show()
 

@@ -1,7 +1,7 @@
 import torch
 from tqdm.auto import tqdm
 from typing import Dict, List, Tuple
-from utils import iou, ltIoU
+from utils import iou, ltIoU, save_model
 import numpy as np
 
 
@@ -16,6 +16,7 @@ def train_step(model: torch.nn.Module,
 
     running_loss = 0.0
     running_iou_means = []
+    running_ltiou_means = []
 
     # Setup train loss and train accuracy values
     train_loss = 0
@@ -34,7 +35,8 @@ def train_step(model: torch.nn.Module,
         outputs = model(inputs)["out"]
 
         loss = loss_fn(outputs, labels)
-        train_loss += loss.item()
+       # train_loss += loss.item()
+        running_loss += loss.item()
 
         _, preds = torch.max(outputs, 1)
 
@@ -42,21 +44,22 @@ def train_step(model: torch.nn.Module,
         optimizer.step()
 
         iou_mean = iou(preds, labels, 7).mean()
-        running_loss += loss.item() * inputs.size(0)
         running_iou_means.append(iou_mean)
 
         lt_iou = ltIoU(preds, labels).mean()
+        running_ltiou_means.append(lt_iou)
 
     #epoch_loss = running_loss / len(dataloader)
     if running_iou_means is not None:
         train_acc = np.array(running_iou_means).mean()
+        lt_iou_acc = np.array(running_ltiou_means).mean()
     else:
         train_acc = 0.
 
     # Adjust metrics to get average loss and accuracy per batch
-    train_loss = train_loss / len(dataloader)
+    train_loss = running_loss / len(dataloader)
     #train_acc = train_acc / len(dataloader)
-    return train_loss, train_acc, lt_iou
+    return train_loss, train_acc, lt_iou_acc
 
 
 def val_step(model: torch.nn.Module,
@@ -69,6 +72,7 @@ def val_step(model: torch.nn.Module,
 
     running_loss = 0.0
     running_iou_means = []
+    running_ltiou_means = []
 
     # Setup test loss and test accuracy values
     val_loss = 0
@@ -86,25 +90,28 @@ def val_step(model: torch.nn.Module,
             outputs = model(inputs)["out"]
 
             loss = loss_fn(outputs, labels)
+            #val_loss += loss.item()
             val_loss += loss.item()
 
             _, preds = torch.max(outputs, 1)
 
             iou_mean = iou(preds, labels, 7).mean()
-            running_loss += loss.item() * inputs.size(0)
             running_iou_means.append(iou_mean)
 
             lt_iou = ltIoU(preds, labels).mean()
+            running_ltiou_means.append(lt_iou)
 
+    #epoch_loss = running_loss / len(dataloader)
     if running_iou_means is not None:
-        test_acc = np.array(running_iou_means).mean()
+        val_acc = np.array(running_iou_means).mean()
+        lt_iou_acc = np.array(running_ltiou_means).mean()
     else:
-        test_acc = 0.
+        val_acc = 0.
 
     # Adjust metrics to get average loss and accuracy per batch
     val_loss = val_loss / len(dataloader)
-    #test_acc = test_acc / len(dataloader)
-    return val_loss, test_acc, lt_iou
+    #val_acc = val_acc / len(dataloader)
+    return val_loss, val_acc, lt_iou_acc
 
 
 def train(model: torch.nn.Module,
@@ -114,51 +121,57 @@ def train(model: torch.nn.Module,
           loss_fn: torch.nn.Module,
           epochs: int,
           device: torch.device,
-          writer: torch.utils.tensorboard.writer.SummaryWriter  # new parameter to take in a writer
+          writer: torch.utils.tensorboard.writer.SummaryWriter,
+          name: str# new parameter to take in a writer
         ):
 
 
     # Make sure model on target device
     model.to(device)
 
+    best_val_loss = float('inf')
+
     # Loop through training and testing steps for a number of epochs
-    for epoch in tqdm(range(epochs)):
-        train_loss, train_iou, train_lt_iou = train_step(model=model,
-                                           dataloader=train_dataloader,
-                                           loss_fn=loss_fn,
-                                           optimizer=optimizer,
-                                           device=device)
-        val_loss, val_iou, test_lt_iou = val_step(model=model,
-                                        dataloader=val_dataloader,
-                                        loss_fn=loss_fn,
-                                        device=device)
+    with writer:
+        for epoch in tqdm(range(epochs)):
+            train_loss, train_iou, train_lt_iou = train_step(model=model,
+                                               dataloader=train_dataloader,
+                                               loss_fn=loss_fn,
+                                               optimizer=optimizer,
+                                               device=device)
+            val_loss, val_iou, val_lt_iou = val_step(model=model,
+                                            dataloader=val_dataloader,
+                                            loss_fn=loss_fn,
+                                            device=device)
 
-        # Print out what's happening
-        print(
-            f"Epoch: {epoch + 1} | "
-            f"train_loss: {train_loss:.4f} | "
-            f"train_iou: {train_iou:.4f} | "
-            f"train_lt_iou: {train_lt_iou:.4f} | "
-            f"val_loss: {val_loss:.4f} | "
-            f"val_iou: {val_iou:.4f}"
-            f"test_lt_iou: {test_lt_iou:.4f} | "
-        )
+            # Print out what's happening
+            print(
+                f"Epoch: {epoch + 1} | "
+                f"train_loss: {train_loss:.4f} | "
+                f"train_iou: {train_iou:.4f} | "
+                f"train_lt_iou: {train_lt_iou:.4f} | "
+                f"val_loss: {val_loss:.4f} | "
+                f"val_iou: {val_iou:.4f} | "
+                f"val_lt_iou: {val_lt_iou:.4f} | "
+            )
 
-        if writer:
+
             # Add results to SummaryWriter
-            writer.add_scalars(main_tag="Loss",
-                               tag_scalar_dict={"train_loss": train_loss,
-                                                "val_loss": val_loss},
-                               global_step=epoch)
-            writer.add_scalars(main_tag="iou",
-                               tag_scalar_dict={"train_iou": train_iou,
-                                                "val_iou": val_iou,
-                                                "train_lt_iou": train_iou,
-                                                 "test_lt_iou": val_iou},
-                               global_step=epoch)
+            if (epoch + 1) % 5 == 0:
+                writer.add_scalars(main_tag="Loss",
+                                   tag_scalar_dict={"train_loss": train_loss,
+                                                    "val_loss": val_loss},
+                                   global_step=epoch)
+                writer.add_scalars(main_tag="IoU",
+                                   tag_scalar_dict={"train_iou": train_iou,
+                                                    "val_iou": val_iou,
+                                                    "train_lt_iou": train_lt_iou,
+                                                     "val_lt_iou": val_lt_iou},
+                                   global_step=epoch)
 
-            # Close the writer
-            writer.close()
-        else:
-            pass
-
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                # Save the current best model
+                save_model(model=model,
+                           target_dir="results/models",
+                           model_name=f"{name}.pth")

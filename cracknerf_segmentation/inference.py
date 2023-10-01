@@ -1,60 +1,132 @@
 import torch
 import numpy as np
-from torchvision import transforms
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 import cv2
 from PIL import Image
-
+import argparse
 import deeplab_model
+import os
+import matplotlib.pyplot as plt
 
-# Number of classes in the dataset
-num_classes = 7
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+def extract_image_name(image_path):
+    return os.path.splitext(os.path.basename(image_path))[0]
 
-model = deeplab_model.initialize_model(num_classes, keep_feature_extract=True, use_pretrained=False)
 
-state_dict = torch.load("models/20epochs_iou.pth", map_location=device)
+def run_inference(state_dict, image_path, mode, save_figure):
+    """
+    Perform image segmentation using the provided DeepLab model and save or display the results based on the chosen mode.
 
-model = model.to(device)
-model.load_state_dict(state_dict)
-model.eval()
+    Parameters:
+        state_dict (str): Path to the saved state dictionary of the DeepLab model.
+        image_path (str): Path to the input image for segmentation.
+        mode (str): Visualization mode. Options: "side_by_side" (default), "overlay", "save_mask".
+        save_figure (bool): True to save the resulting figure, False otherwise.
 
-transforms_image =  transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    Returns:
+        None
+    """
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = deeplab_model.initialize_model(num_classes=7, keep_feature_extract=True, use_pretrained=False)
+
+    state_dict = torch.load(state_dict, map_location=device)
+
+    model = model.to(device)
+    model.load_state_dict(state_dict)
+    model.eval()
+
+    transforms_image = A.Compose(
+        [
+            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+            ToTensorV2(),
+        ]
+    )
+
+    # Load the image
+    image = Image.open(image_path)
+    image_np = np.asarray(image)
+
+    transformed = transforms_image(image=image_np)
+    image_transformed = transformed["image"]
+    image_tensor = image_transformed.unsqueeze(0).to(device)
+
+    outputs = model(image_tensor)["out"]
+
+    # Perform segmentation predictions
+    _, preds = torch.max(outputs, 1)
+    preds = preds.to("cpu")
+    preds_np = preds.squeeze(0).cpu().numpy().astype(np.uint8)
+
+    # Convert segmentation predictions to colored image using the custom colormap
+    custom_colormap = np.array([
+        [0, 0, 0],        # Background (Black)
+        [0, 0, 255],      # Control Point (Blue)
+        [0, 255, 0],      # Vegetation (Green)
+        [0, 255, 255],    # Efflorescence (Cyan)
+        [255, 255, 0],    # Corrosion (Yellow)
+        [255, 0, 0],      # Spalling (Red)
+        [255, 255, 255]   # Crack (White)
     ])
 
-#for idx in range(1, 3000, 25):
+    preds_color = custom_colormap[preds_np]
+    preds_color = preds_color.astype(np.uint8)
+    preds_pil = Image.fromarray(preds_color)
 
-image = Image.open(f"dataset/val/Images/628.png")
+    if mode == "side_by_side":
+        # Plot the original image and the generated mask side by side
+        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
-image_np = np.asarray(image)
-# image_np = cv2.resize(image_np, 0.5, 0.5, cv2.INTER_CUBIC)
-width = 224
-height = 224
-dim = (width, height)
-image_np = cv2.resize(image_np, dim, interpolation=cv2.INTER_AREA)
+        # Plot the original image
+        axes[0].imshow(image_np)
+        axes[0].set_title('Original Image')
+        axes[0].axis('off')
 
-image = Image.fromarray(image_np)
-image = transforms_image(image)
-image = image.unsqueeze(0)
+        # Plot the generated mask
+        axes[1].imshow(preds_pil)
+        axes[1].set_title('Generated Mask')
+        axes[1].axis('off')
 
-image = image.to(device)
+        # Show the comparison plot
+        plt.tight_layout()
+        if save_figure:
+            image_name = extract_image_name(image_path)
+            plt.savefig(f"results/{image_name}_result.png")
+            print("Saved resulting plot")
+        plt.show()
+    elif mode == "overlay":
+        # Overlay the mask on the original image with 30% opacity
+        mask_with_opacity = cv2.addWeighted(image_np, 0.7, preds_color, 0.3, 0)
+        plt.imshow(mask_with_opacity)
+        plt.title('Mask Overlay')
+        plt.axis('off')
+        if save_figure:
+            image_name = extract_image_name(image_path)
+            plt.savefig(f"results/{image_name}_overlay.png")
+            print("Saved overlaid figure")
+        plt.show()
+    elif mode == "save_mask":
+        # Extract image name from the image path
+        image_name = extract_image_name(image_path)
+        # Save the generated mask with the image name as the file name
+        mask_filename = f"results/{image_name}_mask.png"
+        preds_color_rgb = cv2.cvtColor(preds_color, cv2.COLOR_BGR2RGB)
+        cv2.imwrite(mask_filename, preds_color_rgb)
+        print(f"Saved generated mask.")
 
-outputs = model(image)["out"]
 
-_, preds = torch.max(outputs, 1)
+def args_preprocess():
+    # Command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("state_dict", help='Path and name of the state dict')
+    parser.add_argument("image", help="Path and Name of the image")
+    parser.add_argument("--mode", choices=["side_by_side", "overlay", "save_mask"],
+                        default="side_by_side", help="Visualization mode (default: side_by_side)")
+    parser.add_argument("--save_figure", type=bool,
+                        default=False, help="Save the resulting figure")
 
-preds = preds.to("cpu")
+    args = parser.parse_args()
+    run_inference(args.state_dict, args.image, args.mode, args.save_figure)
 
-preds_np = preds.squeeze(0).cpu().numpy().astype(np.uint8)
-
-print(preds_np.shape)
-print(image_np.shape)
-# preds_np = cv2.cvtColor(preds_np, cv2.COLOR_GRAY2BGR)
-image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
-
-preds_np_color = cv2.applyColorMap(preds_np * 50, cv2.COLORMAP_HSV)
-
-cv2.imwrite(f"./results/628_segmentation.png", preds_np_color)
-cv2.imwrite(f"./results/628_image.png", image_np)
+if __name__ == "__main__":
+    args_preprocess()

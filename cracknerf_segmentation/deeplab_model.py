@@ -28,7 +28,7 @@ def initialize_model(num_classes, keep_feature_extract=False, print_model=False,
         print("Model's architecture ...")
 
         print(summary(model_deeplabv3,
-             input_size=(32, 3, 520, 520), # make sure this is "input_size", not "input_shape" (batch_size, color_channels, height, width)
+             input_size=(32, 3, 256, 256), # make sure this is "input_size", not "input_shape" (batch_size, color_channels, height, width)
              verbose=0,
              col_names=["input_size", "output_size", "num_params", "trainable"],
              col_width=20,
