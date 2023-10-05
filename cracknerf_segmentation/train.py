@@ -8,7 +8,7 @@ from albumentations.pytorch import ToTensorV2
 import argparse
 
 
-def main(train_dir, val_dir, batchsize, epochs, learning_rate, name):
+def main(train_dir, val_dir, batchsize, epochs, learning_rate, name, augmentation_intensity):
     # Setup hyperparameters
     NUM_EPOCHS = epochs
     LEARNING_RATE = learning_rate
@@ -24,25 +24,65 @@ def main(train_dir, val_dir, batchsize, epochs, learning_rate, name):
 
     print("Initializing Datasets and Dataloaders...")
 
-    train_transform = A.Compose(
-        [
-            A.LongestMaxSize(max_size=512, interpolation=1),
-            A.RandomCrop(256, 256),
-            A.PadIfNeeded(min_height=256, min_width=256),
-            A.VerticalFlip(p=0.5),
-            A.HorizontalFlip(p=0.6),
-            A.RandomRotate90(p=0.6),
-            A.OneOf([
-                A.Blur(blur_limit=3, p=0.4),
-                A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03, p=0.2),
-                A.GridDistortion(p=0.3),
-                A.Transpose(p=0.5)
-            ], p=0.8),
-            A.RandomBrightnessContrast(p=0.3),
-            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-            ToTensorV2(),
-        ]
-    )
+    if augmentation_intensity.lower()  == "simple":
+        train_transform = A.Compose(
+            [
+                A.LongestMaxSize(max_size=512, interpolation=1),
+                A.RandomCrop(256, 256),
+                A.PadIfNeeded(min_height=256, min_width=256),
+                A.VerticalFlip(p=0.3),
+                A.HorizontalFlip(p=0.3),
+                A.RandomRotate90(p=0.3),
+                A.OneOf([
+                    A.Blur(blur_limit=3, p=0.3),
+                    A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03, p=0.3),
+                    A.GridDistortion(p=0.3),
+                    A.Transpose(p=0.3)
+                ], p=0.3),
+                A.RandomBrightnessContrast(p=0.2),
+                A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                ToTensorV2(),
+            ]
+        )
+    elif augmentation_intensity.lower()  == "complex":
+        train_transform = A.Compose(
+            [
+                A.LongestMaxSize(max_size=512, interpolation=1),
+                A.RandomCrop(256, 256),
+                A.PadIfNeeded(min_height=256, min_width=256),
+                A.VerticalFlip(p=0.6),  # Increased intensity
+                A.HorizontalFlip(p=0.6),  # Increased intensity
+                A.RandomRotate90(p=0.6),  # Increased intensity
+                A.OneOf([
+                    A.Blur(blur_limit=(3, 7), p=0.25),  # Increased intensity
+                    A.ElasticTransform(alpha=(120, 150), sigma=(120 * 0.05, 150 * 0.05),
+                                       alpha_affine=(120 * 0.03, 150 * 0.03), p=0.25),  # Increased intensity
+                    A.GridDistortion(p=0.25),  # Increased intensity
+                    A.OpticalDistortion(distort_limit=2, shift_limit=0.5, p=0.25)  # Increased intensity
+                ], p=0.8),
+                A.OneOf([
+                    A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.25),  # Increased intensity
+                    A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=0.25),
+                    A.ShiftScaleRotate(shift_limit=0.2, scale_limit=0.2, rotate_limit=30, p=0.25),
+                    A.RGBShift(r_shift_limit=25, g_shift_limit=25, b_shift_limit=25, p=0.25),
+                ], p=0.8),
+                A.CoarseDropout(max_holes=8, max_height=32, max_width=32, min_holes=4, min_height=16, min_width=16,
+                                fill_value=0, p=0.3),  # Increased intensity
+                A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                ToTensorV2(),
+            ]
+        )
+    elif augmentation_intensity.lower() == "no_augmentation":
+        train_transform = A.Compose(
+            [
+                A.LongestMaxSize(max_size=512, interpolation=1),
+                A.RandomCrop(256, 256),
+                A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                ToTensorV2(),
+            ]
+        )
+    else:
+        raise ValueError("Invalid augmentation intensity level. Please choose 'simple', 'complex' or ''no_augmentation.")
 
     val_transform = A.Compose(
         [
@@ -95,6 +135,8 @@ def args_preprocess():
     parser.add_argument("--epochs", default=100, type=int, help="Number of epochs to train for")
     parser.add_argument("--learning_rate", default=0.001, type=float, help="Optimizer learning rate")
     parser.add_argument("--name", type=str, help="Name of the current training variant")
+    parser.add_argument("--name", default="simple", type=str, help="Choose the augmentation intensity. 'simple', "
+                                                                   "'complex', 'no_augmentation'")
 
 
     args = parser.parse_args()

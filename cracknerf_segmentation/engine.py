@@ -157,17 +157,17 @@ def train(model: torch.nn.Module,
 
 
             # Add results to SummaryWriter
-            if (epoch + 1) % 5 == 0:
-                writer.add_scalars(main_tag="Loss",
-                                   tag_scalar_dict={"train_loss": train_loss,
-                                                    "val_loss": val_loss},
-                                   global_step=epoch)
-                writer.add_scalars(main_tag="IoU",
-                                   tag_scalar_dict={"train_iou": train_iou,
-                                                    "val_iou": val_iou,
-                                                    "train_lt_iou": train_lt_iou,
-                                                     "val_lt_iou": val_lt_iou},
-                                   global_step=epoch)
+
+            writer.add_scalars(main_tag="Loss",
+                               tag_scalar_dict={"train_loss": train_loss,
+                                                "val_loss": val_loss},
+                               global_step=epoch)
+            writer.add_scalars(main_tag="IoU",
+                               tag_scalar_dict={"train_iou": train_iou,
+                               "val_iou": val_iou,
+                               "train_lt_iou": train_lt_iou,
+                               "val_lt_iou": val_lt_iou},
+                               global_step=epoch)
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss

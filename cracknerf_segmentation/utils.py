@@ -93,7 +93,7 @@ def ltIoU(pred, target, tol=5):
       [output_thin[i, ...], target_thin[i, ...]] = transform2lines(pred[i, ...], target[i, ...], tol)
 
     # compute iou
-    #iou = JaccardIndex(num_classes=2, task="binary",average=None)(from_numpy(output_thin), from_numpy(target_thin))
+    iou = JaccardIndex(num_classes=2, task="binary",average=None)(from_numpy(output_thin), from_numpy(target_thin))
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     pred.to(device)
