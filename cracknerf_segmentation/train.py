@@ -135,13 +135,11 @@ def args_preprocess():
     parser.add_argument("--epochs", default=100, type=int, help="Number of epochs to train for")
     parser.add_argument("--learning_rate", default=0.001, type=float, help="Optimizer learning rate")
     parser.add_argument("--name", type=str, help="Name of the current training variant")
-    parser.add_argument("--name", default="simple", type=str, help="Choose the augmentation intensity. 'simple', "
+    parser.add_argument("--albumentations", default="simple", type=str, help="Choose the augmentation intensity. 'simple', "
                                                                    "'complex', 'no_augmentation'")
 
-
     args = parser.parse_args()
-
-    main(args.train_dir, args.val_dir, args.batch_size, args.epochs, args.learning_rate, args.name)
+    main(args.train_dir, args.val_dir, args.batch_size, args.epochs, args.learning_rate, args.name, args.albumentations)
 
 if __name__ == '__main__':
     args_preprocess()
