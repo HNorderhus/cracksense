@@ -55,8 +55,7 @@ def main(train_dir, val_dir, batchsize, epochs, learning_rate, name, augmentatio
                 A.RandomRotate90(p=0.6),  # Increased intensity
                 A.OneOf([
                     A.Blur(blur_limit=(3, 7), p=0.25),  # Increased intensity
-                    A.ElasticTransform(alpha=(120, 150), sigma=(120 * 0.05, 150 * 0.05),
-                                       alpha_affine=(120 * 0.03, 150 * 0.03), p=0.25),  # Increased intensity
+                    A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03, p=0.25),
                     A.GridDistortion(p=0.25),  # Increased intensity
                     A.OpticalDistortion(distort_limit=2, shift_limit=0.5, p=0.25)  # Increased intensity
                 ], p=0.8),
