@@ -144,53 +144,68 @@ def train(model: torch.nn.Module,
           name: str# new parameter to take in a writer
         ):
 
+        # Make sure model on target device
+        model.to(device)
 
-    # Make sure model on target device
-    model.to(device)
+        best_val_loss = float('inf')
+        patience = 10
+        epochs_without_improvement = 0
 
-    best_val_loss = float('inf')
+        # Loop through training and testing steps for a number of epochs
+        try:
+            with writer:
+                for epoch in tqdm(range(epochs)):
+                    train_loss, train_iou, train_lt_iou = train_step(model=model,
+                                                       dataloader=train_dataloader,
+                                                       loss_fn=loss_fn,
+                                                       optimizer=optimizer,
+                                                       device=device)
+                    val_loss, val_iou, val_lt_iou = val_step(model=model,
+                                                    dataloader=val_dataloader,
+                                                    loss_fn=loss_fn,
+                                                    device=device)
 
-    # Loop through training and testing steps for a number of epochs
-    with writer:
-        for epoch in tqdm(range(epochs)):
-            train_loss, train_iou, train_lt_iou = train_step(model=model,
-                                               dataloader=train_dataloader,
-                                               loss_fn=loss_fn,
-                                               optimizer=optimizer,
-                                               device=device)
-            val_loss, val_iou, val_lt_iou = val_step(model=model,
-                                            dataloader=val_dataloader,
-                                            loss_fn=loss_fn,
-                                            device=device)
-
-            # Print out what's happening
-            print(
-                f"Epoch: {epoch + 1} | "
-                f"train_loss: {train_loss:.4f} | "
-                f"train_iou: {train_iou:.4f} | "
-                f"train_lt_iou: {train_lt_iou:.4f} | "
-                f"val_loss: {val_loss:.4f} | "
-                f"val_iou: {val_iou:.4f} | "
-                f"val_lt_iou: {val_lt_iou:.4f} | "
-            )
+                    # Print out what's happening
+                    print(
+                        f"Epoch: {epoch + 1} | "
+                        f"train_loss: {train_loss:.4f} | "
+                        f"train_iou: {train_iou:.4f} | "
+                        f"train_lt_iou: {train_lt_iou:.4f} | "
+                        f"val_loss: {val_loss:.4f} | "
+                        f"val_iou: {val_iou:.4f} | "
+                        f"val_lt_iou: {val_lt_iou:.4f} | "
+                    )
 
 
-            # Add results to SummaryWriter
+                    # Add results to SummaryWriter
 
-            writer.add_scalars(main_tag="Loss",
-                               tag_scalar_dict={"train_loss": train_loss,
-                                                "val_loss": val_loss},
-                               global_step=epoch)
-            writer.add_scalars(main_tag="IoU",
-                               tag_scalar_dict={"train_iou": train_iou,
-                               "val_iou": val_iou,
-                               "train_lt_iou": train_lt_iou,
-                               "val_lt_iou": val_lt_iou},
-                               global_step=epoch)
+                    writer.add_scalars(main_tag="Loss",
+                                       tag_scalar_dict={"train_loss": train_loss,
+                                                        "val_loss": val_loss},
+                                       global_step=epoch)
+                    writer.add_scalars(main_tag="IoU",
+                                       tag_scalar_dict={"train_iou": train_iou,
+                                       "val_iou": val_iou,
+                                       "train_lt_iou": train_lt_iou,
+                                       "val_lt_iou": val_lt_iou},
+                                       global_step=epoch)
 
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                # Save the current best model
-                save_model(model=model,
-                           target_dir="results/models",
-                           model_name=f"{name}.pth")
+                    if val_loss < best_val_loss:
+                        best_val_loss = val_loss
+                        epochs_without_improvement = 0
+                        # Save the current best model
+                        save_model(model=model,
+                                   target_dir="results/models",
+                                   model_name=f"{name}.pth")
+                    else:
+                        epochs_without_improvement += 1
+                        # If validation loss doesn't improve for 'patience' epochs, stop training
+                        if epochs_without_improvement >= patience:
+                            print("Early stopping. Restoring model from epoch: ", epoch - patience)
+                            break
+
+        except KeyboardInterrupt:
+            # Handle manual interruption by saving the current state of the model
+            print("Training interrupted. Saving model.")
+            torch.save(model.state_dict(), f'{name}_stopped.pth')
+
