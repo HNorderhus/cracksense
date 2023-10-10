@@ -27,9 +27,10 @@ def main(train_dir, val_dir, batchsize, epochs, learning_rate, name, augmentatio
     if augmentation_intensity.lower()  == "simple":
         train_transform = A.Compose(
             [
-                A.LongestMaxSize(max_size=512, interpolation=1),
-                A.RandomCrop(256, 256),
-                A.PadIfNeeded(min_height=256, min_width=256),
+                #A.LongestMaxSize(max_size=512, interpolation=1),
+                #A.RandomCrop(256, 256),
+                #A.PadIfNeeded(min_height=256, min_width=256),
+                A.RandomCrop(513, 513),
                 A.VerticalFlip(p=0.3),
                 A.HorizontalFlip(p=0.3),
                 A.RandomRotate90(p=0.3),
@@ -47,9 +48,10 @@ def main(train_dir, val_dir, batchsize, epochs, learning_rate, name, augmentatio
     elif augmentation_intensity.lower()  == "complex":
         train_transform = A.Compose(
             [
-                A.LongestMaxSize(max_size=512, interpolation=1),
-                A.RandomCrop(256, 256),
-                A.PadIfNeeded(min_height=256, min_width=256),
+                #A.LongestMaxSize(max_size=512, interpolation=1),
+                #A.RandomCrop(256, 256),
+                #A.PadIfNeeded(min_height=256, min_width=256),
+                A.RandomCrop(513, 513),
                 A.VerticalFlip(p=0.6),  # Increased intensity
                 A.HorizontalFlip(p=0.6),  # Increased intensity
                 A.RandomRotate90(p=0.6),  # Increased intensity
@@ -74,8 +76,10 @@ def main(train_dir, val_dir, batchsize, epochs, learning_rate, name, augmentatio
     elif augmentation_intensity.lower() == "no_augmentation":
         train_transform = A.Compose(
             [
-                A.LongestMaxSize(max_size=512, interpolation=1),
-                A.RandomCrop(256, 256),
+                #A.LongestMaxSize(max_size=512, interpolation=1),
+                #A.RandomCrop(256, 256),
+                #A.PadIfNeeded(min_height=256, min_width=256),
+                A.RandomCrop(513, 513),
                 A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
                 ToTensorV2(),
             ]
@@ -85,9 +89,11 @@ def main(train_dir, val_dir, batchsize, epochs, learning_rate, name, augmentatio
 
     val_transform = A.Compose(
         [
-            A.LongestMaxSize(max_size=512, interpolation=1),
-            A.CenterCrop(256, 256),
-            A.PadIfNeeded(min_height=256, min_width=256),
+            #A.LongestMaxSize(max_size=512, interpolation=1),
+            #A.CenterCrop(513, 513),
+            A.LongestMaxSize(max_size=712, interpolation=1),
+            A.CenterCrop(513, 513),
+            #A.PadIfNeeded(min_height=256, min_width=256),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2(),
         ]
