@@ -3,6 +3,8 @@ from tqdm.auto import tqdm
 from typing import Dict, List, Tuple
 from utils import iou, ltIoU, save_model
 import numpy as np
+from torchmetrics.classification import MulticlassJaccardIndex
+
 
 
 def train_step(model: torch.nn.Module,
@@ -20,6 +22,8 @@ def train_step(model: torch.nn.Module,
 
     # Setup train loss and train accuracy values
     train_loss = 0
+
+    jaccard_metric = MulticlassJaccardIndex(num_classes=7, ignore_index=6).to(device)
 
     # Loop through data loader data batches
     for i_batch, sample_batched in enumerate(dataloader):
@@ -43,15 +47,24 @@ def train_step(model: torch.nn.Module,
         loss.backward()
         optimizer.step()
 
-        iou_mean = iou(preds, labels, 7).mean()
-        running_iou_means.append(iou_mean)
+        #iou_mean = iou(preds, labels, 7).mean()
+        #running_iou_means.append(iou_mean)
+
+        iou_values = jaccard_metric(preds, labels)
+        #print(f"iou_values: {iou_values}")
+
+        running_iou_means.append(iou_values)
 
         lt_iou = ltIoU(preds, labels).mean()
         running_ltiou_means.append(lt_iou)
 
     #epoch_loss = running_loss / len(dataloader)
+
     if running_iou_means is not None:
-        train_acc = np.array(running_iou_means).mean()
+        #train_acc = np.array(running_iou_means).mean()
+        #iou_tensor = torch.cat(running_iou_means)
+        train_acc = torch.mean(torch.stack(running_iou_means), dim=0)
+
         lt_iou_acc = np.array(running_ltiou_means).mean()
     else:
         train_acc = 0.
@@ -77,6 +90,8 @@ def val_step(model: torch.nn.Module,
     # Setup test loss and test accuracy values
     val_loss = 0
 
+    jaccard_metric = MulticlassJaccardIndex(num_classes=7, ignore_index=6).to(device)
+
     # Turn on inference context manager
     with torch.inference_mode():
         # Loop through DataLoader batches
@@ -95,15 +110,19 @@ def val_step(model: torch.nn.Module,
 
             _, preds = torch.max(outputs, 1)
 
-            iou_mean = iou(preds, labels, 7).mean()
-            running_iou_means.append(iou_mean)
+            #iou_mean = iou(preds, labels, 7).mean()
+            #running_iou_means.append(iou_mean)
+
+            iou_values = jaccard_metric(preds, labels)
+            running_iou_means.append(iou_values)
 
             lt_iou = ltIoU(preds, labels).mean()
             running_ltiou_means.append(lt_iou)
 
     #epoch_loss = running_loss / len(dataloader)
     if running_iou_means is not None:
-        val_acc = np.array(running_iou_means).mean()
+#        val_acc = np.array(running_iou_means).mean()
+        val_acc = torch.mean(torch.stack(running_iou_means), dim=0)
         lt_iou_acc = np.array(running_ltiou_means).mean()
     else:
         val_acc = 0.

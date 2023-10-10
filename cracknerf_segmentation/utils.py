@@ -72,7 +72,7 @@ def transform2lines(output, target, tol=5):
     return output, target
 
 
-def ltIoU(pred, target, tol=5):
+def ltIoU(pred, target, tol=4):
     """ Computes line-based, tolerant intersection-over-union (IoU). """
     pred = pred.cpu()
     target = target.cpu()
@@ -95,9 +95,11 @@ def ltIoU(pred, target, tol=5):
     # compute iou
     iou = JaccardIndex(num_classes=2, task="binary",average=None)(from_numpy(output_thin), from_numpy(target_thin))
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    pred.to(device)
-    target.to(device)
+    #device = "cuda" if torch.cuda.is_available() else "cpu"
+    #pred.to(device)
+    #target.to(device)
+
+    #print(f"lt_IoU: {iou}")
 
     return iou
 
