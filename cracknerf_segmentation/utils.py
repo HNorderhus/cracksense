@@ -6,10 +6,14 @@ from pathlib import Path
 from datetime import datetime
 from torch import from_numpy
 from torch.utils.tensorboard import SummaryWriter
-from torchmetrics import JaccardIndex
+from torchmetrics.classification import BinaryJaccardIndex
 from skimage.morphology import disk, thin
 import matplotlib.pyplot as plt
 import random
+import io
+from PIL import Image
+from torchvision import transforms
+
 
 # -------------------------------------------
 # functions to calculate IoU
@@ -53,7 +57,7 @@ def iou(pred, target, n_classes = 7):
     return np.array(ious)
 
 
-def transform2lines(output, target, tol=5):
+def transform2lines(output, target, tol=4):
     """ Transform predictions and labels to thinned representation for line-base, tolerant IoU. """
     # thin predictions and labels
     output_thin = np.uint8(thin(output.cpu().numpy()))
@@ -72,34 +76,26 @@ def transform2lines(output, target, tol=5):
     return output, target
 
 
+
 def ltIoU(pred, target, tol=4):
     """ Computes line-based, tolerant intersection-over-union (IoU). """
     pred = pred.cpu()
     target = target.cpu()
 
+    pred[pred < 6] = 0
+    target[target < 6] = 0
+
+    pred[pred == 6] = 1
+    target[target == 6] = 1
+
     output_thin = np.copy(pred)
     target_thin = np.copy(target)
-
-    crack_class = 6
-
-    output_crack = (output_thin == crack_class)
-    target_crack = (target_thin == crack_class)
-
-    output_thin[~output_crack] = 0
-    target_thin[~target_crack] = 0
 
     # thin predictions and labels
     for i in range(len(pred)):
       [output_thin[i, ...], target_thin[i, ...]] = transform2lines(pred[i, ...], target[i, ...], tol)
 
-    # compute iou
-    iou = JaccardIndex(num_classes=2, task="binary",average=None)(from_numpy(output_thin), from_numpy(target_thin))
-
-    #device = "cuda" if torch.cuda.is_available() else "cpu"
-    #pred.to(device)
-    #target.to(device)
-
-    #print(f"lt_IoU: {iou}")
+    iou = BinaryJaccardIndex()(from_numpy(output_thin), from_numpy(target_thin))
 
     return iou
 
@@ -172,9 +168,20 @@ def save_model(model: torch.nn.Module,
              f=model_save_path)
 
 
-# -------------------------------------------
+
+# ------------------------------------------
 # functions to convert RGB labels to grayscale
 # -------------------------------------------
+
+def plt_to_tensor(plt):
+    # Save the Matplotlib figure to a BytesIO object
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+
+    # Open the BytesIO object as an Image and convert it to a PyTorch tensor
+    image = Image.open(buf).convert('RGB')
+    return transforms.ToTensor()(image)
 
 
 def rgb2mask(img: np.ndarray):

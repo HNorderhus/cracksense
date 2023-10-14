@@ -7,11 +7,15 @@ from torch.utils.data import DataLoader
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import argparse
+from torchmetrics.classification import ConfusionMatrix
+import matplotlib.pyplot as plt
+from torchmetrics.classification import MulticlassJaccardIndex
+
 
 def test_step(model, dataloader, loss_fn, state_dict, device):
 
     # Put model in eval mode
-    state_dict = torch.load(state_dict, map_location=device)
+    #state_dict = torch.load(state_dict, map_location=device)
 
     model = model.to(device)
     model.load_state_dict(state_dict)
@@ -22,6 +26,9 @@ def test_step(model, dataloader, loss_fn, state_dict, device):
 
     # Setup test loss and test accuracy values
     test_loss = 0
+
+    jaccard_metric = MulticlassJaccardIndex(num_classes=7, ignore_index=6).to(device)
+
 
     # Turn on inference context manager
     with torch.inference_mode():
@@ -41,15 +48,15 @@ def test_step(model, dataloader, loss_fn, state_dict, device):
 
             _, preds = torch.max(outputs, 1)
 
-            iou_mean = iou(preds, labels, 7).mean()
-            running_iou_means.append(iou_mean)
+            iou_values = jaccard_metric(preds, labels)
+            running_iou_means.append(iou_values)
 
-            lt_iou = ltIoU(preds, labels).mean()
+            lt_iou = ltIoU(preds, labels)
             running_ltiou_means.append(lt_iou)
 
     #epoch_loss = running_loss / len(dataloader)
     if running_iou_means is not None:
-        test_acc = np.array(running_iou_means).mean()
+        test_acc = torch.mean(torch.stack(running_iou_means), dim=0)
         lt_iou_acc = np.array(running_ltiou_means).mean()
     else:
         test_acc = 0.
@@ -73,8 +80,8 @@ def test(test_dir, state_dict):
 
     test_transform = A.Compose(
         [
-            A.LongestMaxSize(max_size=512, interpolation=1),
-            A.CenterCrop(256, 256),
+            A.LongestMaxSize(max_size=768, interpolation=1),
+            A.CenterCrop(512, 512),
             A.PadIfNeeded(min_height=256, min_width=256),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2(),

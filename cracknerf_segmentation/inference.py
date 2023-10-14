@@ -126,6 +126,15 @@ def args_preprocess():
                         default=False, help="Save the resulting figure")
 
     args = parser.parse_args()
+
+    # Get a list of all image files in the specified directory
+    image_files = [os.path.join(args.image, file) for file in os.listdir(args.image) if file.lower().endswith(('.png', '.jpg'))]
+
+    # Run inference for each image
+    for image_file in image_files:
+        run_inference(args.state_dict, image_file, args.mode, args.save_figure)
+
+
     run_inference(args.state_dict, args.image, args.mode, args.save_figure)
 
 if __name__ == "__main__":
