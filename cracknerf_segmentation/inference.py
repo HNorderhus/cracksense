@@ -28,12 +28,33 @@ def run_inference(state_dict, image_path, mode, save_figure):
         None
     """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = deeplab_model.initialize_model(num_classes=7, keep_feature_extract=True, use_pretrained=False)
+    model1 = deeplab_model.initialize_model(num_classes=7, keep_feature_extract=True, use_pretrained=False)
+    model = torch.load("/home/henrik/Documents/Master/Thesis/thesis_cracknerf/first_pruned_fucker.pth")
 
-    state_dict = torch.load(state_dict, map_location=device)
-
+    model.load_state_dict(torch.load(state_dict, map_location=device))
     model = model.to(device)
-    model.load_state_dict(state_dict)
+    #model.load_state_dict(state_dict)
+
+    from torchinfo import summary
+
+    print(summary(model1,
+                  input_size=(32, 3, 256, 256),
+                  # make sure this is "input_size", not "input_shape" (batch_size, color_channels, height, width)
+                  verbose=0,
+                  col_names=["input_size", "output_size", "num_params", "trainable"],
+                  col_width=20,
+                  row_settings=["var_names"]
+                  ))
+
+    print(summary(model,
+                  input_size=(32, 3, 256, 256),
+                  # make sure this is "input_size", not "input_shape" (batch_size, color_channels, height, width)
+                  verbose=0,
+                  col_names=["input_size", "output_size", "num_params", "trainable"],
+                  col_width=20,
+                  row_settings=["var_names"]
+                  ))
+
     model.eval()
 
     transforms_image = A.Compose(
@@ -52,6 +73,7 @@ def run_inference(state_dict, image_path, mode, save_figure):
     image_tensor = image_transformed.unsqueeze(0).to(device)
 
     outputs = model(image_tensor)["out"]
+    #outputs = model(image_tensor)
 
     # Perform segmentation predictions
     _, preds = torch.max(outputs, 1)
@@ -91,20 +113,23 @@ def run_inference(state_dict, image_path, mode, save_figure):
         plt.tight_layout()
         if save_figure:
             image_name = extract_image_name(image_path)
-            plt.savefig(f"results/{image_name}_result.png")
-            print("Saved resulting plot")
-        plt.show()
+            plt.savefig(f"results/{image_name}_result_pruned.png")
+            #print("Saved resulting plot")
+        #plt.show()
+        plt.close()
     elif mode == "overlay":
         # Overlay the mask on the original image with 30% opacity
         mask_with_opacity = cv2.addWeighted(image_np, 0.7, preds_color, 0.3, 0)
+        plt.figure(figsize=(6,6))
         plt.imshow(mask_with_opacity)
         plt.title('Mask Overlay')
         plt.axis('off')
         if save_figure:
             image_name = extract_image_name(image_path)
             plt.savefig(f"results/{image_name}_overlay.png")
-            print("Saved overlaid figure")
-        plt.show()
+            #print("Saved overlaid figure")
+        #plt.show()
+        plt.close()
     elif mode == "save_mask":
         # Extract image name from the image path
         image_name = extract_image_name(image_path)
@@ -118,8 +143,8 @@ def run_inference(state_dict, image_path, mode, save_figure):
 def args_preprocess():
     # Command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("state_dict", help='Path and name of the state dict')
-    parser.add_argument("image", help="Path and Name of the image")
+    parser.add_argument("--state_dict", help='Path and name of the state dict')
+    parser.add_argument("--image", help="Path and Name of the image")
     parser.add_argument("--mode", choices=["side_by_side", "overlay", "save_mask"],
                         default="side_by_side", help="Visualization mode (default: side_by_side)")
     parser.add_argument("--save_figure", type=bool,
@@ -135,7 +160,7 @@ def args_preprocess():
         run_inference(args.state_dict, image_file, args.mode, args.save_figure)
 
 
-    run_inference(args.state_dict, args.image, args.mode, args.save_figure)
+    #run_inference(args.state_dict, args.image, args.mode, args.save_figure)
 
 if __name__ == "__main__":
     args_preprocess()

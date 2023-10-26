@@ -1,13 +1,13 @@
 import torch
 from tqdm.auto import tqdm
-from typing import Dict, List, Tuple
-from utils import iou, ltIoU, save_model, plt_to_tensor
+from utils import ltIoU, save_model, plt_to_tensor
 import numpy as np
 from torchmetrics.classification import MulticlassJaccardIndex, ConfusionMatrix
 import math
 import seaborn as sn
 import pandas as pd
 import matplotlib.pyplot as plt
+
 
 def train_step(model: torch.nn.Module,
                dataloader: torch.utils.data.DataLoader,
@@ -33,9 +33,7 @@ def train_step(model: torch.nn.Module,
         inputs, labels = sample_batched
         inputs = inputs.to(device)
         labels = labels.to(device)
-
         outputs = model(inputs)["out"]
-
         loss = loss_fn(outputs, labels)
         running_loss += loss.item()
 
@@ -66,6 +64,7 @@ def train_step(model: torch.nn.Module,
 
     # Adjust metrics to get average loss and accuracy per batch
     train_loss = running_loss / len(dataloader)
+
     return train_loss, train_acc, lt_iou_acc, confmat.cpu().numpy()
 
 

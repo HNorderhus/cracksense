@@ -10,16 +10,15 @@ import argparse
 from torchmetrics.classification import ConfusionMatrix
 import matplotlib.pyplot as plt
 from torchmetrics.classification import MulticlassJaccardIndex
-
+import math
 
 def test_step(model, dataloader, loss_fn, state_dict, device):
 
     # Put model in eval mode
     #state_dict = torch.load(state_dict, map_location=device)
 
-    model = model.to(device)
-    model.load_state_dict(state_dict)
-    model.eval()
+    #model = model.to(device)
+   # model.load_state_dict(state_dict)
 
     running_iou_means = []
     running_ltiou_means = []
@@ -53,13 +52,17 @@ def test_step(model, dataloader, loss_fn, state_dict, device):
 
             lt_iou = ltIoU(preds, labels)
             running_ltiou_means.append(lt_iou)
+            test_acc = torch.mean(torch.stack(running_iou_means), dim=0)
 
     #epoch_loss = running_loss / len(dataloader)
-    if running_iou_means is not None:
-        test_acc = torch.mean(torch.stack(running_iou_means), dim=0)
-        lt_iou_acc = np.array(running_ltiou_means).mean()
+    if running_ltiou_means is not None:
+        res = []
+        for val in running_ltiou_means:
+            if val.item() != 0. or not math.isnan(val.item()):
+                res.append(val)
+        lt_iou_acc = np.nanmean(np.array(res))
     else:
-        test_acc = 0.
+        lt_iou_acc = 0.
 
     # Adjust metrics to get average loss and accuracy per batch
     test_loss =test_loss / len(dataloader)
@@ -71,10 +74,12 @@ def test(test_dir, state_dict):
     NUM_WORKERS = os.cpu_count()
     NUM_CLASSES = 7
 
+    torch.manual_seed(42)
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device}")
 
-    state_dict = torch.load(state_dict, map_location=device)
+    #state_dict = torch.load(state_dict, map_location=device)
 
     print("Initializing Datasets and Dataloaders...")
 
@@ -82,7 +87,7 @@ def test(test_dir, state_dict):
         [
             A.LongestMaxSize(max_size=768, interpolation=1),
             A.CenterCrop(512, 512),
-            A.PadIfNeeded(min_height=256, min_width=256),
+            A.PadIfNeeded(min_height=512, min_width=512),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2(),
         ]
@@ -92,7 +97,12 @@ def test(test_dir, state_dict):
     test_dataloader = DataLoader(test_data, batch_size=32, shuffle=True, num_workers=NUM_WORKERS)
 
     print("Initializing Model...")
-    model = deeplab_model.initialize_model(NUM_CLASSES, keep_feature_extract=True, print_model=False)
+    #model = deeplab_model.initialize_model(NUM_CLASSES, keep_feature_extract=True, print_model=False)
+    model = torch.load("results/models/first_pruned_fucker.pth").to(device)
+
+    model.load_state_dict(torch.load(state_dict, map_location=device))
+    model.eval()
+
 
     # Set loss and optimizer
     loss_fn = torch.nn.CrossEntropyLoss()

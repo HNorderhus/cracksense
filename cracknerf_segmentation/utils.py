@@ -18,45 +18,6 @@ from torchvision import transforms
 # -------------------------------------------
 # functions to calculate IoU
 # -------------------------------------------
-
-def iou(pred, target, n_classes = 7):
-    """
-    Calculate Intersection over Union (IoU) for semantic segmentation predictions.
-
-    This function computes the IoU for each class in semantic segmentation predictions.
-    IoU measures the overlap between predicted and target masks for each class,
-    excluding the background class (class "0").
-
-    Args:
-        pred (torch.Tensor): Predicted segmentation map.
-        target (torch.Tensor): Target segmentation map (ground truth).
-        n_classes (int, optional): Number of classes, excluding the background class. Defaults to 7.
-
-    Returns:
-        numpy.ndarray: An array of IoU scores, one for each class.
-
-    Note:
-        - The input 'pred' and 'target' should be PyTorch tensors with the same shape.
-        - The background class (class "0") is excluded from the IoU calculation.
-    """
-    ious = []
-
-    # convert 2D matrices to 1D arrays
-    pred = pred.view(-1)
-    target = target.view(-1)
-
-    # Ignore IoU for background class ("0")
-    for cls in range(1,n_classes):
-        pred_inds = pred == cls
-        target_inds = target == cls
-        intersection = (pred_inds[target_inds]).long().sum().data.cpu().item()  # Cast to long to prevent overflows
-        union = pred_inds.long().sum().data.cpu().item() + target_inds.long().sum().data.cpu().item() - intersection
-        if union > 0:
-            ious.append(float(intersection) / float(max(union, 1)))
-
-    return np.array(ious)
-
-
 def transform2lines(output, target, tol=4):
     """ Transform predictions and labels to thinned representation for line-base, tolerant IoU. """
     # thin predictions and labels
@@ -74,8 +35,6 @@ def transform2lines(output, target, tol=4):
 
     output, target = tp + fp, tp + fn
     return output, target
-
-
 
 def ltIoU(pred, target, tol=4):
     """ Computes line-based, tolerant intersection-over-union (IoU). """
@@ -99,11 +58,10 @@ def ltIoU(pred, target, tol=4):
 
     return iou
 
+
 # -------------------------------------------
 # functions to document and save model
 # -------------------------------------------
-
-
 def create_writer(experiment_name: str,
                   model_name: str,
                   extra: str = None) -> torch.utils.tensorboard.writer.SummaryWriter():
@@ -168,11 +126,9 @@ def save_model(model: torch.nn.Module,
              f=model_save_path)
 
 
-
 # ------------------------------------------
 # functions to convert RGB labels to grayscale
 # -------------------------------------------
-
 def plt_to_tensor(plt):
     # Save the Matplotlib figure to a BytesIO object
     buf = io.BytesIO()
@@ -258,7 +214,6 @@ def convert_rgb_to_grayscale(input_dir, output_dir):
 # -------------------------------------------
 # visualize the augmented images from the dataloader
 # -------------------------------------------
-
 def visualize_data(images, masks):
     num_samples = len(images)
     sample_indices = random.sample(range(num_samples), 10)  # Select 10 random samples

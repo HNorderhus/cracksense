@@ -18,8 +18,9 @@ class DataLoaderSegmentation(Dataset):
         self.transform = transform
 
     def dilate_cracks(self, mask):
-        # Define a kernel for dilation (you can adjust the size of the kernel as needed)
-        kernel = np.ones((5, 5), np.uint8)  # 5x5 kernel, adjust the size based on your requirements
+        # Define a circular kernel for dilation
+        kernel_size = 5
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
         dilated_mask = cv2.dilate(mask, kernel, iterations=1)
         return dilated_mask
 
@@ -47,7 +48,6 @@ class DataLoaderSegmentation(Dataset):
 
     def __len__(self):
         return len(self.img_files)
-
 
 
 debug_mode = False
