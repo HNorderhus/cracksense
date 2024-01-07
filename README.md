@@ -2,6 +2,8 @@
 
 This project is focused on crack segmentation using the DeepLabV3Resnet101 architecture using the S2DS dataset.
 
+![inferenced crack](imgs/608_result_ignore.png)
+
 ## Overview
 
 - **DeepLabV3Resnet101**: We use the DeepLabV3Resnet101 architecture, a state-of-the-art deep learning model for image segmentation, as the backbone of this project.
