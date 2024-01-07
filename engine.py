@@ -3,6 +3,7 @@ from tqdm.auto import tqdm
 from utils import ltIoU, save_model, plt_to_tensor
 import numpy as np
 from torchmetrics.classification import MulticlassJaccardIndex, ConfusionMatrix
+from torchmetrics import Precision, Recall, F1Score
 import math
 import seaborn as sn
 import pandas as pd
@@ -81,6 +82,11 @@ def val_step(model: torch.nn.Module,
     confmat_metric = ConfusionMatrix(task="multiclass", num_classes=8).to(device)
     confmat = torch.zeros((8,8), device=device)
 
+    precision = Precision(task="multiclass", average='macro', num_classes=8).to(device)
+    recall = Recall(task="multiclass", average='macro', num_classes=8).to(device)
+    f1_score = F1Score(task="multiclass", num_classes=8).to(device)
+
+
     # Turn on inference context manager
     with torch.inference_mode():
         # Loop through DataLoader batches
@@ -108,6 +114,10 @@ def val_step(model: torch.nn.Module,
 
             val_acc = torch.mean(torch.stack(running_iou_means), dim=0)
 
+            precision.update(preds, labels)
+            recall.update(preds, labels)
+            f1_score.update(preds, labels)
+
         if running_ltiou_means is not None:
             res = []
             for val in running_ltiou_means:
@@ -117,9 +127,14 @@ def val_step(model: torch.nn.Module,
         else:
             lt_iou_acc = 0.
 
+        final_precision = precision.compute()
+        final_recall = recall.compute()
+        final_f1 = f1_score.compute()
+
     val_loss = val_loss / len(dataloader)
 
-    return val_loss, val_acc, lt_iou_acc, confmat.cpu().numpy()
+    #return val_loss, val_acc, lt_iou_acc, confmat.cpu().numpy()
+    return val_loss, val_acc, lt_iou_acc, confmat.cpu().numpy(), final_precision, final_recall, final_f1
 
 
 def train(model: torch.nn.Module,
@@ -130,10 +145,12 @@ def train(model: torch.nn.Module,
           epochs: int,
           device: torch.device,
           writer: torch.utils.tensorboard.writer.SummaryWriter,
-          name: str# new parameter to take in a writer
+          name: str,
+          patience: int = 20
         ):
     model.to(device)
     best_val_loss = float('inf')
+    patience_counter = 0
 
     # Loop through training and testing steps for a number of epochs
     with writer:
@@ -143,10 +160,17 @@ def train(model: torch.nn.Module,
                                                loss_fn=loss_fn,
                                                optimizer=optimizer,
                                                device=device)
-            val_loss, val_iou, val_lt_iou, val_confmat = val_step(model=model,
-                                            dataloader=val_dataloader,
-                                            loss_fn=loss_fn,
-                                            device=device)
+            # val_loss, val_iou, val_lt_iou, val_confmat = val_step(model=model,
+            #                                 dataloader=val_dataloader,
+            #                                 loss_fn=loss_fn,
+            #                                 device=device)
+
+            val_loss, val_iou, val_lt_iou, val_confmat, val_precision, val_recall, val_f1 = val_step(
+                model=model,
+                dataloader=val_dataloader,
+                loss_fn=loss_fn,
+                device=device
+            )
 
             # Print out what's happening
             print(
@@ -173,12 +197,26 @@ def train(model: torch.nn.Module,
                                "val_lt_iou": val_lt_iou},
                                global_step=epoch)
 
+            writer.add_scalars(main_tag="Validation/Metrics",
+                               tag_scalar_dict={"Precision": val_precision,
+                                                "Recall": val_recall,
+                                                "F1_Score": val_f1},
+                               global_step=epoch)
+
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
+                patience_counter = 0
                 # Save the current best model
                 save_model(model=model,
                            target_dir="results/models",
                            model_name=f"{name}.pth")
+            else:
+                patience_counter += 1
+                print(f"Epoch {epoch + 1}: No improvement in validation loss.")
+
+            if patience_counter >= patience:
+                print(f"Early stopping triggered at epoch {epoch + 1}.")
+                break
 
             if epoch % 50 == 0:
                 classes = ["Background", "Control Point", "Vegetation", "Efflorescence", "Corrosion", "Spalling", "Crack", "Boundary"]

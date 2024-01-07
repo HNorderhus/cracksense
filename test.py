@@ -21,9 +21,9 @@ def test_step(model, dataloader, loss_fn, state_dict, device):
     # Setup test loss and test accuracy values
     test_loss = 0
 
-    jaccard_metric = MulticlassJaccardIndex(num_classes=7, ignore_index=6).to(device)
-    confmat_metric = ConfusionMatrix(task="multiclass", num_classes=7).to(device)
-    confmat = torch.zeros((7, 7), device=device)
+    jaccard_metric = MulticlassJaccardIndex(num_classes=8, ignore_index=7).to(device)
+    confmat_metric = ConfusionMatrix(task="multiclass", num_classes=8).to(device)
+    confmat = torch.zeros((8,8), device=device)
 
     # Turn on inference context manager
     with torch.inference_mode():
@@ -72,9 +72,7 @@ def test_step(model, dataloader, loss_fn, state_dict, device):
 
 def test(test_dir, state_dict):
     NUM_WORKERS = os.cpu_count()
-    NUM_CLASSES = 7
-
-    torch.manual_seed(42)
+    NUM_CLASSES = 8
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device}")
@@ -85,20 +83,20 @@ def test(test_dir, state_dict):
 
     test_transform = A.Compose(
         [
-            A.LongestMaxSize(max_size=768, interpolation=1),
-            A.CenterCrop(512, 512),
-            A.PadIfNeeded(min_height=512, min_width=512),
+            #A.LongestMaxSize(max_size=768, interpolation=1),
+            #A.CenterCrop(512, 512),
+            #A.PadIfNeeded(min_height=512, min_width=512),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2(),
         ]
     )
 
     test_data = data_setup.DataLoaderSegmentation(folder_path=test_dir, transform=test_transform)
-    test_dataloader = DataLoader(test_data, batch_size=32, shuffle=True, num_workers=NUM_WORKERS)
+    test_dataloader = DataLoader(test_data, batch_size=4, num_workers=NUM_WORKERS)
 
     print("Initializing Model...")
     model = deeplab_model.initialize_model(NUM_CLASSES, keep_feature_extract=True, print_model=False)
-    state_dict = "results/models/e400_baseline.pth"
+    state_dict = "results/models/e400_lr001_addedF1.pth"
     #model = torch.load("results/models/p50_magnitude.pth")
 
     #state_dict = "results/models/e50_50mag.pth"
@@ -110,7 +108,7 @@ def test(test_dir, state_dict):
 
 
     # Set loss and optimizer
-    loss_fn = torch.nn.CrossEntropyLoss(ignore_index=0)
+    loss_fn = torch.nn.CrossEntropyLoss(ignore_index=7)
 
     test_loss, test_iou, test_lt_iou, test_confmat = test_step(model=model,
                                                dataloader=test_dataloader,
@@ -124,7 +122,7 @@ def test(test_dir, state_dict):
                 f"test_lt_iou: {test_lt_iou:.4f} | "
             )
 
-    classes = ["Background", "Control Point", "Vegetation", "Efflorescence", "Corrosion", "Spalling", "Crack"]
+    classes = ["Background", "Control Point", "Vegetation", "Efflorescence", "Corrosion", "Spalling", "Crack", "Boundary"]
 
     row_sums = test_confmat.sum(axis=1, keepdims=True)
     normalized_confmat = (test_confmat / row_sums) * 100

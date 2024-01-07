@@ -9,14 +9,17 @@ import random
 from utils import visualize_data
 from skimage.morphology import disk, thin
 
-class DataLoaderSegmentation(Dataset):
-    def __init__(self, folder_path, transform = None):
 
-        #from pathlib import Path
+class DataLoaderSegmentation(Dataset):
+    def __init__(self, folder_path, transform=None, dilate_cracks=True):
+
+        # from pathlib import Path
 
         self.img_files = glob.glob(os.path.join(folder_path, 'Images', '*.*'))
         self.mask_files = glob.glob(os.path.join(folder_path, 'Labels_grayscale', '*.*'))
         self.transform = transform
+
+        self.dilate_cracks_flag = dilate_cracks
 
     def dilate_cracks(self, mask):
         # Define a circular kernel for dilation
@@ -49,9 +52,11 @@ class DataLoaderSegmentation(Dataset):
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
         # Check if the mask contains crack pixels (class 6)
-        if np.any(mask == 6):
+        if self.dilate_cracks_flag and np.any(mask == 6):
             # Perform dilation on the mask (cracks) only when there are crack pixels in the mask
             mask = self.dilate_cracks(mask)
+            mask = self.boundary_tolerance(np.array(mask))
+        elif np.any(mask == 6):
             mask = self.boundary_tolerance(np.array(mask))
 
         if self.transform is not None:
@@ -95,7 +100,7 @@ if debug_mode:
     batch_size = 32  # Choose your desired batch size
 
     dataset = DataLoaderSegmentation(folder_path, transform=data_transform)
-    #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+    # dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
 
     print(len(dataset))
 
