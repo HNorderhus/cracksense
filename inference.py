@@ -29,7 +29,7 @@ def run_inference(state_dict, image_path, mode, save_figure):
     """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = deeplab_model.initialize_model(num_classes=8, keep_feature_extract=True)
-    state_dict = "results/models/e400_lr001_addedF1.pth"
+    state_dict = "results/models/lr_0.001_aug_strong_dilate_False_weight_True.pth"
 
     #model = torch.load("results/models/p50_magnitude.pth")
 
@@ -98,7 +98,7 @@ def run_inference(state_dict, image_path, mode, save_figure):
         plt.tight_layout()
         if save_figure:
             image_name = extract_image_name(image_path)
-            plt.savefig(f"results/{image_name}_result_ignore_F1.png")
+            plt.savefig(f"results/{image_name}_lr_0.001_aug_strong_dilate_False_weight_True.png")
             #print("Saved resulting plot")
         #plt.show()
         plt.close()

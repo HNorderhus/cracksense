@@ -14,7 +14,8 @@ def initialize_model(num_classes, keep_feature_extract=False, print_model=False)
             param.requires_grad = False
 
     model_deeplabv3.classifier = torchvision.models.segmentation.deeplabv3.DeepLabHead(2048, num_classes)
-    model_deeplabv3.aux_classifier = torchvision.models.segmentation.deeplabv3.DeepLabHead(1024, num_classes)
+    #model_deeplabv3.aux_classifier = torchvision.models.segmentation.deeplabv3.DeepLabHead(1024, num_classes)
+    model_deeplabv3.aux_classifier = None
 
     if print_model:
         print("Model's architecture ...")

@@ -2,8 +2,7 @@ import torch
 from tqdm.auto import tqdm
 from utils import ltIoU, save_model, plt_to_tensor
 import numpy as np
-from torchmetrics.classification import MulticlassJaccardIndex, ConfusionMatrix
-from torchmetrics import Precision, Recall, F1Score
+from torchmetrics.classification import MulticlassJaccardIndex, ConfusionMatrix, MulticlassPrecision, MulticlassRecall, MulticlassF1Score
 import math
 import seaborn as sn
 import pandas as pd
@@ -21,7 +20,7 @@ def train_step(model: torch.nn.Module,
     running_iou_means = []
     running_ltiou_means = []
 
-    jaccard_metric = MulticlassJaccardIndex(num_classes=8, ignore_index=7).to(device)
+    jaccard_metric = MulticlassJaccardIndex(num_classes=8, ignore_index=7, average="weighted").to(device)
     confmat_metric = ConfusionMatrix(task="multiclass", num_classes=8).to(device)
     confmat = torch.zeros((8,8), device=device)
 
@@ -78,13 +77,13 @@ def val_step(model: torch.nn.Module,
     running_ltiou_means = []
     val_loss = 0
 
-    jaccard_metric = MulticlassJaccardIndex(num_classes=8, ignore_index=7).to(device)
+    jaccard_metric = MulticlassJaccardIndex(num_classes=8, average="weighted", ignore_index=7).to(device)
     confmat_metric = ConfusionMatrix(task="multiclass", num_classes=8).to(device)
     confmat = torch.zeros((8,8), device=device)
 
-    precision = Precision(task="multiclass", average='macro', num_classes=8).to(device)
-    recall = Recall(task="multiclass", average='macro', num_classes=8).to(device)
-    f1_score = F1Score(task="multiclass", num_classes=8).to(device)
+    precision = MulticlassPrecision(num_classes=8, average='weighted', ignore_index=7).to(device)
+    recall = MulticlassRecall(num_classes=8, average='weighted', ignore_index=7).to(device)
+    f1_score = MulticlassF1Score(num_classes=8, average='weighted', ignore_index=7).to(device)
 
 
     # Turn on inference context manager
@@ -183,7 +182,6 @@ def train(model: torch.nn.Module,
                 f"val_lt_iou: {val_lt_iou:.4f} | "
             )
 
-
             # Add results to SummaryWriter
 
             writer.add_scalars(main_tag="Loss",
@@ -216,25 +214,8 @@ def train(model: torch.nn.Module,
 
             if patience_counter >= patience:
                 print(f"Early stopping triggered at epoch {epoch + 1}.")
-                break
 
-            if epoch % 50 == 0:
                 classes = ["Background", "Control Point", "Vegetation", "Efflorescence", "Corrosion", "Spalling", "Crack", "Boundary"]
-
-                row_sums = train_confmat.sum(axis=1, keepdims=True)
-                normalized_confmat = (train_confmat / row_sums) * 100
-                df_cm = pd.DataFrame(normalized_confmat, index=classes, columns=classes)
-
-                plt.figure(figsize=(10, 7))
-                sn.heatmap(df_cm, annot=True, fmt='.1f', cmap='Blues')  # Adjust the colormap as needed
-                plt.xlabel('Predicted')
-                plt.ylabel('Actual')
-                plt.title(f'Train Confusion Matrix, Epoch {epoch}')
-                image_train_confmat = plt_to_tensor(plt)
-                plt.close()  # Close the figure to free up resources
-
-                # Add the image to TensorBoard
-                writer.add_image('Train Confusion Matrix', image_train_confmat, global_step=epoch)
 
                 row_sums = val_confmat.sum(axis=1, keepdims=True)
                 normalized_confmat = (val_confmat / row_sums) * 100
@@ -249,3 +230,5 @@ def train(model: torch.nn.Module,
                 plt.close()
 
                 writer.add_image('Val Confusion Matrix', image_val_confmat, global_step=epoch)
+
+                break
