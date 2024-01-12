@@ -158,8 +158,8 @@ def args_preprocess():
     parser.add_argument("val_dir", help='Directory path, should contain val/Images and val/Labels_grayscale')
     parser.add_argument("epochs", type=int, help="Number of epochs to train for")
     parser.add_argument("name", type=str, help="Name of the current training variant")
-    parser.add_argument("--augmentation", type=str, help="Strong or Weak")
-    parser.add_argument("--lr", type=float, help="Name of the current training variant")
+    parser.add_argument("--augmentation", type=str, help="Strong or Weak", default="strong")
+    parser.add_argument("--lr", type=float, help="Name of the current training variant", default=0.001)
     parser.add_argument("--dilate_cracks", type=bool, default=True, help="Whether to dilate cracks or not")
     parser.add_argument("--double_crack_weight", type=bool, default=False,
                         help="Whether to double the weight of crack class")

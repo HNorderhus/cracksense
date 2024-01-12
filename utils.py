@@ -1,17 +1,21 @@
+import io
+import math
 import os
-import cv2
-import torch
-import numpy as np
-from pathlib import Path
+import random
 from datetime import datetime
+from pathlib import Path
+
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from PIL import Image
+from skimage.morphology import disk, thin
 from torch import from_numpy
 from torch.utils.tensorboard import SummaryWriter
-from torchmetrics.classification import BinaryJaccardIndex
-from skimage.morphology import disk, thin
-import matplotlib.pyplot as plt
-import random
-import io
-from PIL import Image
+from torchmetrics.classification import BinaryJaccardIndex, MulticlassJaccardIndex, ConfusionMatrix, \
+    MulticlassPrecision, MulticlassRecall, \
+    MulticlassF1Score
 from torchvision import transforms
 
 
@@ -36,6 +40,7 @@ def transform2lines(output, target, tol=4):
     output, target = tp + fp, tp + fn
     return output, target
 
+
 def ltIoU(pred, target, tol=4):
     """ Computes line-based, tolerant intersection-over-union (IoU). """
     pred = pred.cpu()
@@ -55,11 +60,62 @@ def ltIoU(pred, target, tol=4):
 
     # thin predictions and labels
     for i in range(len(pred)):
-      [output_thin[i, ...], target_thin[i, ...]] = transform2lines(pred[i, ...], target[i, ...], tol)
+        [output_thin[i, ...], target_thin[i, ...]] = transform2lines(pred[i, ...], target[i, ...], tol)
 
     iou = BinaryJaccardIndex()(from_numpy(output_thin), from_numpy(target_thin))
 
     return iou
+
+
+def initialize_metrics(device):
+    metrics = {
+        "jaccard": MulticlassJaccardIndex(num_classes=8, average="weighted", ignore_index=7).to(device),
+        "confmat": ConfusionMatrix(task="multiclass", num_classes=8).to(device),
+        "precision": MulticlassPrecision(num_classes=8, average='weighted', ignore_index=7).to(device),
+        "recall": MulticlassRecall(num_classes=8, average='weighted', ignore_index=7).to(device),
+        "f1_score": MulticlassF1Score(num_classes=8, average='weighted', ignore_index=7).to(device)
+    }
+    return metrics
+
+
+def update_running_means(running_means, new_value):
+    if new_value is not None and new_value.item() != 0. and not math.isnan(new_value.item()):
+        running_means.append(new_value.item())
+    return running_means
+
+
+def visualize_confusion_matrix(confmat, epoch=None):
+    import seaborn as sn
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    classes = ["Background", "Control Point", "Vegetation", "Efflorescence", "Corrosion", "Spalling", "Crack",
+               "Boundary"]
+    row_sums = confmat.sum(axis=1, keepdims=True)
+    normalized_confmat = (confmat / row_sums) * 100
+    df_cm = pd.DataFrame(normalized_confmat, index=classes, columns=classes)
+    plt.figure(figsize=(10, 7))
+    sn.heatmap(df_cm, annot=True, fmt='.1f', cmap='Greens')  # Adjust the colormap as needed
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    if epoch:
+        plt.title(f'Val Confusion Matrix, Epoch {epoch}')
+    else:
+        plt.title("Test Confusion Matrix")
+    image_val_confmat = plt_to_tensor(plt)
+    plt.close()
+
+    return image_val_confmat
+
+
+def calculate_metrics(preds, labels, metrics):
+    iou_values = metrics["jaccard"](preds, labels)
+    metrics["confmat"].update(preds, labels)
+    metrics["precision"].update(preds, labels)
+    metrics["recall"].update(preds, labels)
+    metrics["f1_score"].update(preds, labels)
+    lt_iou = ltIoU(preds, labels)
+    return iou_values, lt_iou
 
 
 # -------------------------------------------
@@ -117,16 +173,16 @@ def save_model(model: torch.nn.Module,
     # Create target directory
     target_dir_path = Path(target_dir)
     target_dir_path.mkdir(parents=True,
-                        exist_ok=True)
+                          exist_ok=True)
 
     # Create model save path
     assert model_name.endswith(".pth") or model_name.endswith(".pt"), "model_name should end with '.pt' or '.pth'"
     model_save_path = target_dir_path / model_name
 
     # Save the model state_dict()
-    #print(f"[INFO] Saving model to: {model_save_path}")
+    # print(f"[INFO] Saving model to: {model_save_path}")
     torch.save(obj=model.state_dict(),
-             f=model_save_path)
+               f=model_save_path)
 
 
 # ------------------------------------------
@@ -161,7 +217,7 @@ def rgb2mask(img: np.ndarray):
     height, width, ch = img.shape
     assert ch == 3
 
-    #colormap according to s2ds repository
+    # colormap according to s2ds repository
     cmap = {
         (0, 0, 0): 0,  # Background
         (0, 0, 255): 1,  # Control Point
@@ -237,4 +293,3 @@ def visualize_data(images, masks):
         axs[i, 1].set_title(f"Unique Values: {unique_values}")
 
     plt.show()
-
