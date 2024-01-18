@@ -137,7 +137,7 @@ if __name__ == "__main__":
     model = deeplab_model.initialize_model(8, keep_feature_extract=True, print_model=False)
     # model.load_state_dict(torch.load("results/models/e1200_baseline.pth"))
 
-    tensor_shape = (16, 3, 256, 256)
+    tensor_shape = (16, 3, 512, 512)
     example_inputs = torch.empty(tensor_shape)
 
     output_transform = lambda x: x["out"]
