@@ -21,7 +21,7 @@ def initialize_model(num_classes, keep_feature_extract=False, print_model=False)
         print("Model's architecture ...")
 
         print(summary(model_deeplabv3,
-                      input_size=(32, 3, 224, 224),
+                      input_size=(32, 3, 512, 512),
                       verbose=0,
                       col_names=["input_size", "output_size", "num_params", "trainable"],
                       col_width=20,
@@ -30,4 +30,4 @@ def initialize_model(num_classes, keep_feature_extract=False, print_model=False)
 
     return model_deeplabv3
 
-#model = initialize_model(7,print_model=True)
+#model = initialize_model(8,print_model=True)

@@ -17,7 +17,7 @@ import seaborn as sn
 import pandas as pd
 
 
-def test_step(model, dataloader, loss_fn, state_dict, metrics, device):
+def test_step(model, dataloader, loss_fn, metrics, device):
     running_iou_means = []
     running_ltiou_means = []
 
@@ -65,24 +65,23 @@ def test_step(model, dataloader, loss_fn, state_dict, metrics, device):
         "confmat"].compute().cpu().numpy(), final_precision, final_recall, final_f1
 
 
-def test(test_dir, dilate_cracks, state_dict):
+def test(test_dir, dilate_cracks, weights, pruned_model, use_pruned):
     NUM_WORKERS = os.cpu_count()
-    NUM_CLASSES = 7
+    NUM_CLASSES = 8
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device}")
 
-    # state_dict = torch.load(state_dict, map_location=device)
-
+    print("Initializing Datasets and Dataloaders...")
     print("Initializing Datasets and Dataloaders...")
 
     metrics = initialize_metrics(device)
 
     test_transform = A.Compose(
         [
-            # A.LongestMaxSize(max_size=768, interpolation=1),
-            # A.CenterCrop(512, 512),
-            # A.PadIfNeeded(min_height=512, min_width=512),
+            A.LongestMaxSize(max_size=768, interpolation=1),
+            A.CenterCrop(512, 512),
+            A.PadIfNeeded(min_height=512, min_width=512),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2(),
         ]
@@ -90,17 +89,15 @@ def test(test_dir, dilate_cracks, state_dict):
 
     test_data = data_setup.DataLoaderSegmentation(test_dir, transform=test_transform, dilate_cracks=dilate_cracks)
     # test_data = data_setup.DataLoaderSegmentation(folder_path=test_dir, transform=test_transform)
-    test_dataloader = DataLoader(test_data, batch_size=4, num_workers=NUM_WORKERS)
+    test_dataloader = DataLoader(test_data, batch_size=16, num_workers=NUM_WORKERS)
 
     print("Initializing Model...")
-    model = deeplab_model.initialize_model(NUM_CLASSES, keep_feature_extract=True, print_model=False)
-    state_dict = "results/models/e400_baseline.pth"
-    # model = torch.load("results/models/p50_magnitude.pth")
+    if use_pruned:
+        model = torch.load(pruned_model)
+    else:
+        model = deeplab_model.initialize_model(NUM_CLASSES, keep_feature_extract=True, print_model=False)
 
-    # state_dict = "results/models/e50_50mag.pth"
-
-    model.load_state_dict(torch.load(state_dict, map_location=device))
-
+    model.load_state_dict(torch.load(weights))
     model = model.to(device)
     model.eval()
 
@@ -110,7 +107,6 @@ def test(test_dir, dilate_cracks, state_dict):
     test_loss, test_iou, test_lt_iou, test_confmat, precision, recall, f1 = test_step(model=model,
                                                                                       dataloader=test_dataloader,
                                                                                       loss_fn=loss_fn,
-                                                                                      state_dict=state_dict,
                                                                                       metrics=metrics,
                                                                                       device=device)
 
@@ -139,14 +135,14 @@ def test(test_dir, dilate_cracks, state_dict):
 
 
 def args_preprocess():
-    # Command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("test_dir", help="Directory for the test data")
-    parser.add_argument("--dilate_cracks", type=bool, default=True, help="Whether to dilate cracks or not")
-    parser.add_argument("--state_dict", help='Path and name of the state dict')
-
+    parser.add_argument("--dilate_cracks", type=bool, default=False, help="Whether to dilate cracks or not")
+    parser.add_argument("--weights", help='Path and name of the state dict for vanilla model')
+    parser.add_argument("--pruned_model", help='Path to the pruned model file')
+    parser.add_argument("--use_pruned", action='store_true', help='Flag to use the pruned model')
     args = parser.parse_args()
-    test(args.test_dir, args.dilate_cracks, args.state_dict)
+    test(args.test_dir, args.dilate_cracks, args.weights, args.pruned_model, args.use_pruned)
 
 
 if __name__ == "__main__":

@@ -8,13 +8,14 @@ import argparse
 import deeplab_model
 import os
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 
 def extract_image_name(image_path):
     return os.path.splitext(os.path.basename(image_path))[0]
 
 
-def run_inference(state_dict, image_path, mode, save_figure):
+def run_inference(model, image_path, mode, save_figure):
     """
     Perform image segmentation using the provided DeepLab model and save or display the results based on the chosen mode.
 
@@ -28,15 +29,7 @@ def run_inference(state_dict, image_path, mode, save_figure):
         None
     """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = deeplab_model.initialize_model(num_classes=8, keep_feature_extract=True)
-    state_dict = "results/models/lr_0.001_aug_weak_dilate_True_weight_True_no_Seed.pth"
 
-    #model = torch.load("results/models/p50_magnitude.pth")
-
-    #state_dict = "results/models/e150_50mag.pth"
-    model = model.to(device)
-
-    model.load_state_dict(torch.load(state_dict, map_location=device))
     #model = model.to(device)
     #model.load_state_dict(state_dict)
 
@@ -44,6 +37,7 @@ def run_inference(state_dict, image_path, mode, save_figure):
 
     transforms_image = A.Compose(
         [
+            A.LongestMaxSize(max_size=768, interpolation=1),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2(),
         ]
@@ -98,7 +92,7 @@ def run_inference(state_dict, image_path, mode, save_figure):
         plt.tight_layout()
         if save_figure:
             image_name = extract_image_name(image_path)
-            plt.savefig(f"results/{image_name}_lr_0.001_aug_weak_dilate_True_weight_True_no_Seed.png")
+            plt.savefig(f"results/{image_name}_40percent_Taylor.png")
             #print("Saved resulting plot")
         #plt.show()
         plt.close()
@@ -140,9 +134,23 @@ def args_preprocess():
     # Get a list of all image files in the specified directory
     image_files = [os.path.join(args.image, file) for file in os.listdir(args.image) if file.lower().endswith(('.png', '.jpg'))]
 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    model = torch.load("results/models/40percent_Taylor_model.pth")
+
+    # model = deeplab_model.initialize_model(num_classes=8, keep_feature_extract=True)
+    state_dict = "results/models/40percent_Taylor_model_weights.pth"
+
+    # model = torch.load("results/models/p50_magnitude.pth")
+
+    # state_dict = "results/models/e150_50mag.pth"
+    model = model.to(device)
+
+    model.load_state_dict(torch.load(state_dict, map_location=device))
+
     # Run inference for each image
-    for image_file in image_files:
-        run_inference(args.state_dict, image_file, args.mode, args.save_figure)
+    for image_file in tqdm(image_files):
+        run_inference(model, image_file, args.mode, args.save_figure)
 
 
     #run_inference(args.state_dict, args.image, args.mode, args.save_figure)

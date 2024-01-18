@@ -19,7 +19,7 @@ def set_seed(seed_value):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-def main(train_dir, val_dir, epochs, name, augmentation, lr, dilate_cracks, double_crack_weight, pruned_model):
+def main(train_dir, val_dir, epochs, name, augmentation, lr, dilate_cracks, double_crack_weight, pruned_model, train_pruned):
     NUM_EPOCHS = epochs
     LEARNING_RATE = lr
 
@@ -27,7 +27,7 @@ def main(train_dir, val_dir, epochs, name, augmentation, lr, dilate_cracks, doub
     NUM_CLASSES = 8
     BATCH_SIZE = 16
 
-    set_seed(42)  # You can choose any number as your seed value.
+    #set_seed(42)  # You can choose any number as your seed value.
 
     # Setup target device
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -149,7 +149,8 @@ def main(train_dir, val_dir, epochs, name, augmentation, lr, dilate_cracks, doub
                  epochs=NUM_EPOCHS,
                  device=device,
                  writer=tensorboard_writer,
-                 name=name)
+                 name=name,
+                 train_pruned=False)
 
 def args_preprocess():
     # Command line arguments
@@ -163,11 +164,12 @@ def args_preprocess():
     parser.add_argument("--dilate_cracks", type=bool, default=True, help="Whether to dilate cracks or not")
     parser.add_argument("--double_crack_weight", type=bool, default=False,
                         help="Whether to double the weight of crack class")
-    parser.add_argument("--pruned_model", type=str, help="Load the pruned model")
+    parser.add_argument("--pruned_model", type=str, help="Load the pruned model"),
+    parser.add_argument("--train_pruned", type=bool, default=False)
 
     args = parser.parse_args()
     main(args.train_dir, args.val_dir, args.epochs, args.name, args.augmentation, args.lr,  args.dilate_cracks,
-         args.double_crack_weight, args.pruned_model)
+         args.double_crack_weight, args.pruned_model, args.train_pruned)
 if __name__ == '__main__':
     args_preprocess()
 

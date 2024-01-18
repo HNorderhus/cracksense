@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch_pruning as tp
 import deeplab_model
+from tqdm import tqdm
 
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))))
 #
@@ -12,7 +13,7 @@ import deeplab_model
 #
 #     entries = globals().copy()
 
-def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio, p_value):
+def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio, p_value, importance_type, iterative_steps):
     ori_size = tp.utils.count_params(model)
     model.eval()
     ignored_layers = []
@@ -28,12 +29,28 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
     #########################################
     # Build network pruners
     #########################################
-    importance = tp.importance.MagnitudeImportance(p=p_value)
+    # Initialize importance based on the provided importance_type
+    # if importance_type == "Taylor":
+    #     importance = tp.importance.TaylorImportance()
+    # else: # Assuming the other option is Magnitude
+    #     importance = tp.importance.MagnitudeImportance(p=p_value)
+
+    if importance_type == "Taylor":
+        importance = tp.importance.GroupTaylorImportance()
+    elif importance_type == "Magnitude":
+        # For Magnitude, you can use GroupNormImportance as it acts as a generalized group-level magnitude importance measure.
+        # The 'p' parameter determines the norm degree.
+        importance = tp.importance.GroupNormImportance(p=p_value)
+    else:
+        raise ValueError("Unsupported importance type. Choose 'Taylor' or 'Magnitude'.")
+
+    iterative_steps = iterative_steps
+
     pruner = tp.pruner.MagnitudePruner(
         model,
         example_inputs=example_inputs,
         importance=importance,
-        iterative_steps=1,
+        iterative_steps=iterative_steps,
         pruning_ratio=pruning_ratio,
         global_pruning=False,
         # round_to=round_to,
@@ -58,7 +75,19 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
             elif isinstance(module, nn.Linear):
                 layer_channel_cfg[module] = module.out_features
 
-    pruner.step()
+    # Taylor Importance requires gradient calculation
+    if importance_type == "Taylor":
+        # Calculate gradients for importance estimation
+        model.zero_grad()
+        output = model(example_inputs)
+        if output_transform:
+            output = output_transform(output)
+        loss = output.sum()
+        loss.backward()
+
+    for i in tqdm(range(iterative_steps)):
+
+        pruner.step()
 
     print("==============After pruning=================")
     # print(model)
@@ -93,13 +122,13 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
             print("  Output:", out.shape)
         print("------------------------------------------------------\n")
 
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pruning_ratio", type=float, help="Pruning ratio for the model")
+    parser.add_argument("--importance_type", type=str, help="Taylor or Magnitude")
     parser.add_argument("--p_value", type=int, help="p value for MagnitudeImportance")
     parser.add_argument("--model_name", type=str, help="Name for saving the pruned model")
+    parser.add_argument("--iterative_steps", type=int, default=1, help="number of iterations")
     args = parser.parse_args()
 
     successful = []
@@ -108,7 +137,7 @@ if __name__ == "__main__":
     model = deeplab_model.initialize_model(8, keep_feature_extract=True, print_model=False)
     # model.load_state_dict(torch.load("results/models/e1200_baseline.pth"))
 
-    tensor_shape = (16, 3, 224, 224)
+    tensor_shape = (16, 3, 256, 256)
     example_inputs = torch.empty(tensor_shape)
 
     output_transform = lambda x: x["out"]
@@ -116,7 +145,7 @@ if __name__ == "__main__":
     try:
         my_prune(
             model, example_inputs=example_inputs, output_transform=output_transform, model_name=args.model_name, pruning_ratio=args.pruning_ratio,
-            p_value = args.p_value
+            p_value = args.p_value, importance_type=args.importance_type, iterative_steps=args.iterative_steps
         )
         successful.append("deeplabv3")
     except Exception as e:
@@ -127,7 +156,7 @@ if __name__ == "__main__":
     print("Unsuccessful Pruning: %d Models\n" % (len(unsuccessful)), unsuccessful)
 
     print("Save pruned model")
-    torch.save(model, f'results/models/{args.model_name}.pth')
+    torch.save(model, f'results/models/{args.model_name}_baseline.pth')
 
     sys.stdout.flush()
 
