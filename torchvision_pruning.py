@@ -11,7 +11,7 @@ import deeplab_model
 
 
 def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio, p_value, importance_type,
-             iterative_steps):
+             iterative_steps, prune_layers, pruning_ratio_layer1, pruning_ratio_layer2):
     ori_size = tp.utils.count_params(model)
     model.eval()
 
@@ -40,17 +40,29 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
 
     iterative_steps = iterative_steps
 
-    pruner = tp.pruner.MagnitudePruner(
-        model,
-        example_inputs=example_inputs,
-        importance=importance,
-        iterative_steps=iterative_steps,
-        pruning_ratio=pruning_ratio,
-        pruning_ratio_dict={model.backbone.layer1: 0.6, model.backbone.layer2: 0.6},
-        global_pruning=False,
-        ignored_layers=ignored_layers,
-        # channel_groups=channel_groups,
-    )
+    if prune_layers:
+        pruner = tp.pruner.MagnitudePruner(
+            model,
+            example_inputs=example_inputs,
+            importance=importance,
+            iterative_steps=iterative_steps,
+            pruning_ratio=pruning_ratio,
+            pruning_ratio_dict={model.backbone.layer1: pruning_ratio_layer1, model.backbone.layer2: pruning_ratio_layer2},
+            global_pruning=False,
+            ignored_layers=ignored_layers,
+            # channel_groups=channel_groups,
+        )
+    else:
+        pruner = tp.pruner.MagnitudePruner(
+            model,
+            example_inputs=example_inputs,
+            importance=importance,
+            iterative_steps=iterative_steps,
+            pruning_ratio=pruning_ratio,
+            global_pruning=False,
+            ignored_layers=ignored_layers,
+            # channel_groups=channel_groups,
+        )
 
     #########################################
     # Pruning
@@ -114,6 +126,10 @@ if __name__ == "__main__":
     parser.add_argument("--p_value", type=int, help="p value for MagnitudeImportance")
     parser.add_argument("--model_name", type=str, help="Name for saving the pruned model")
     parser.add_argument("--iterative_steps", type=int, default=1, help="number of iterations")
+    parser.add_argument("--prune_layers", type=bool, default=False, help="Enable specific pruning")
+    parser.add_argument("--pruning_ratio_layer1", type=float, help="Specific pruning ratios for layer 1")
+    parser.add_argument("--pruning_ratio_layer2", type=float, help="Specific pruning ratios for layer 2")
+
     args = parser.parse_args()
 
     successful = []
@@ -131,7 +147,9 @@ if __name__ == "__main__":
         my_prune(
             model, example_inputs=example_inputs, output_transform=output_transform, model_name=args.model_name,
             pruning_ratio=args.pruning_ratio,
-            p_value=args.p_value, importance_type=args.importance_type, iterative_steps=args.iterative_steps
+            p_value=args.p_value, importance_type=args.importance_type, iterative_steps=args.iterative_steps,
+            prune_layers = args.prune_layers, pruning_ratio_layer1 = args.pruning_ratio_layer1,
+            pruning_ratio_layer2 = args.pruning_ratio_layer2
         )
         successful.append("deeplabv3")
     except Exception as e:
