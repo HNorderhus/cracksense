@@ -1,21 +1,20 @@
 import argparse
-import os, sys
+import sys
+import traceback
+
 import torch
 import torch.nn as nn
 import torch_pruning as tp
-import deeplab_model
 from tqdm import tqdm
 
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))))
-#
-#
-# if __name__ == "__main__":
-#
-#     entries = globals().copy()
+import deeplab_model
 
-def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio, p_value, importance_type, iterative_steps):
+
+def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio, p_value, importance_type,
+             iterative_steps):
     ori_size = tp.utils.count_params(model)
     model.eval()
+
     ignored_layers = []
     for p in model.parameters():
         p.requires_grad_(True)
@@ -29,18 +28,13 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
     #########################################
     # Build network pruners
     #########################################
-    # Initialize importance based on the provided importance_type
-    # if importance_type == "Taylor":
-    #     importance = tp.importance.TaylorImportance()
-    # else: # Assuming the other option is Magnitude
-    #     importance = tp.importance.MagnitudeImportance(p=p_value)
 
     if importance_type == "Taylor":
-        importance = tp.importance.GroupTaylorImportance()
+        importance = tp.importance.TaylorImportance()
     elif importance_type == "Magnitude":
         # For Magnitude, you can use GroupNormImportance as it acts as a generalized group-level magnitude importance measure.
         # The 'p' parameter determines the norm degree.
-        importance = tp.importance.GroupNormImportance(p=p_value)
+        importance = tp.importance.MagnitudeImportance(p=p_value)
     else:
         raise ValueError("Unsupported importance type. Choose 'Taylor' or 'Magnitude'.")
 
@@ -52,9 +46,8 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
         importance=importance,
         iterative_steps=iterative_steps,
         pruning_ratio=pruning_ratio,
+        pruning_ratio_dict={model.backbone.layer1: 0.6, model.backbone.layer2: 0.6},
         global_pruning=False,
-        # round_to=round_to,
-        # unwrapped_parameters=unwrapped_parameters,
         ignored_layers=ignored_layers,
         # channel_groups=channel_groups,
     )
@@ -86,7 +79,6 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
         loss.backward()
 
     for i in tqdm(range(iterative_steps)):
-
         pruner.step()
 
     print("==============After pruning=================")
@@ -106,14 +98,6 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
         params_after_prune = tp.utils.count_params(model)
         print("  Params: %s => %s" % (ori_size, params_after_prune))
 
-        for module, ch in layer_channel_cfg.items():
-            if isinstance(module, nn.Conv2d):
-                # print(module.out_channels, layer_channel_cfg[module])
-                assert int((1-pruning_ratio) * layer_channel_cfg[module]) == module.out_channels
-            elif isinstance(module, nn.Linear):
-                # print(module.out_features, layer_channel_cfg[module])
-                assert int((1-pruning_ratio) * layer_channel_cfg[module]) == module.out_features
-
         if isinstance(out, (dict, list, tuple)):
             print("  Output:")
             for o in tp.utils.flatten_as_list(out):
@@ -121,6 +105,7 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
         else:
             print("  Output:", out.shape)
         print("------------------------------------------------------\n")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -144,12 +129,16 @@ if __name__ == "__main__":
 
     try:
         my_prune(
-            model, example_inputs=example_inputs, output_transform=output_transform, model_name=args.model_name, pruning_ratio=args.pruning_ratio,
-            p_value = args.p_value, importance_type=args.importance_type, iterative_steps=args.iterative_steps
+            model, example_inputs=example_inputs, output_transform=output_transform, model_name=args.model_name,
+            pruning_ratio=args.pruning_ratio,
+            p_value=args.p_value, importance_type=args.importance_type, iterative_steps=args.iterative_steps
         )
         successful.append("deeplabv3")
     except Exception as e:
-        print(e)
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {e}")
+        traceback.print_exc()
+
         unsuccessful.append("deeplabv3")
     print("Successful Pruning: %d Models\n" % (len(successful)), successful)
     print("")
@@ -161,9 +150,3 @@ if __name__ == "__main__":
     sys.stdout.flush()
 
     print("Finished!")
-
-    print("Successful Pruning: %d Models\n" % (len(successful)), successful)
-    print("")
-    print("Unsuccessful Pruning: %d Models\n" % (len(unsuccessful)), unsuccessful)
-
-
