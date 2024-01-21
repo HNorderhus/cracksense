@@ -165,7 +165,7 @@ if __name__ == "__main__":
     print("Unsuccessful Pruning: %d Models\n" % (len(unsuccessful)), unsuccessful)
 
     print("Save pruned model")
-    torch.save(model, f'results/models/{args.model_name}_baseline.pth')
+    torch.save(model, f'results/models/{args.model_name}_model.pth')
 
     sys.stdout.flush()
 
