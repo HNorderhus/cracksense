@@ -73,7 +73,7 @@ def inspect_layer_activation(state_dict, image, s2ds_class, pruned_model, use_pr
         if use_pruned:
             cam_image_pil.save(f"results/layer_activations/{image_name}_layer{layer_number}_pruned.png")
         else:
-            cam_image_pil.save(f"results/layer_activations/{image_name}_layer{layer_number}.png")
+            cam_image_pil.save(f"results/layer_activations/{image_name}_layer{layer_number}_old.png")
 
 def args_preprocess():
     parser = argparse.ArgumentParser()

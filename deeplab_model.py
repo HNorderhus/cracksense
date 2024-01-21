@@ -9,6 +9,7 @@ def initialize_model(num_classes, keep_feature_extract=False, print_model=False)
     """
     model_deeplabv3 = models.segmentation.deeplabv3_resnet101(
         weights=torchvision.models.segmentation.DeepLabV3_ResNet101_Weights.DEFAULT, progress=True)
+
     if keep_feature_extract:
         for param in model_deeplabv3.parameters():
             param.requires_grad = False

@@ -92,7 +92,7 @@ def run_inference(model, image_path, mode, save_figure):
         plt.tight_layout()
         if save_figure:
             image_name = extract_image_name(image_path)
-            plt.savefig(f"results/{image_name}_40percent_Taylor.png")
+            plt.savefig(f"results/{image_name}_old_baseline.png")
             #print("Saved resulting plot")
         #plt.show()
         plt.close()
@@ -128,6 +128,8 @@ def args_preprocess():
                         default="side_by_side", help="Visualization mode (default: side_by_side)")
     parser.add_argument("--save_figure", type=bool,
                         default=False, help="Save the resulting figure")
+    parser.add_argument("--pruned_model", help='Path to the pruned model file')
+    parser.add_argument("--use_pruned",  help='Flag to use the pruned model')
 
     args = parser.parse_args()
 
@@ -136,17 +138,13 @@ def args_preprocess():
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model = torch.load("results/models/40percent_Taylor_model.pth")
+    if args.use_pruned:
+        model = torch.load(args.pruned_model)
+    else:
+        model = deeplab_model.initialize_model(num_classes=8, keep_feature_extract=True, print_model=False)
 
-    # model = deeplab_model.initialize_model(num_classes=8, keep_feature_extract=True)
-    state_dict = "results/models/40percent_Taylor_model_weights.pth"
-
-    # model = torch.load("results/models/p50_magnitude.pth")
-
-    # state_dict = "results/models/e150_50mag.pth"
+    model.load_state_dict(torch.load(args.state_dict, map_location=device))
     model = model.to(device)
-
-    model.load_state_dict(torch.load(state_dict, map_location=device))
 
     # Run inference for each image
     for image_file in tqdm(image_files):

@@ -129,14 +129,16 @@ if __name__ == "__main__":
     parser.add_argument("--prune_layers", type=bool, default=False, help="Enable specific pruning")
     parser.add_argument("--pruning_ratio_layer1", type=float, help="Specific pruning ratios for layer 1")
     parser.add_argument("--pruning_ratio_layer2", type=float, help="Specific pruning ratios for layer 2")
+    parser.add_argument("--state_dict", type=str, help="Path to the state_dict file")
 
     args = parser.parse_args()
 
     successful = []
     unsuccessful = []
 
-    model = deeplab_model.initialize_model(8, keep_feature_extract=True, print_model=False)
-    # model.load_state_dict(torch.load("results/models/e1200_baseline.pth"))
+    model = deeplab_model.initialize_model(8, keep_feature_extract=False, print_model=False)
+    if args.state_dict:
+        model.load_state_dict(torch.load(args.state_dict))
 
     tensor_shape = (16, 3, 512, 512)
     example_inputs = torch.empty(tensor_shape)
