@@ -92,9 +92,6 @@ def main(train_dir, val_dir, name, model):
         ]
     )
 
-    #train_data = data_setup.DataLoaderSegmentation(folder_path=train_dir, transform=train_transform)
-    #val_data = data_setup.DataLoaderSegmentation(folder_path=val_dir, transform=val_transform)
-
     train_data = data_setup.DataLoaderSegmentation(train_dir, transform=train_transform)
     val_data = data_setup.DataLoaderSegmentation(val_dir, transform=val_transform)
 
@@ -103,17 +100,6 @@ def main(train_dir, val_dir, name, model):
 
     print("Initializing Model...")
 
-
-    # if pruned_model:
-    #     model_path = f'results/models/{pruned_model}'
-    #     model = torch.load(model_path)
-    #
-    #     for param in model.backbone.parameters():
-    #         param.requires_grad = False
-    # else:
-    #     model = deeplab_model.initialize_model(NUM_CLASSES, keep_feature_extract=True, print_model=False)
-    #
-    # # Set loss and optimizer
     class_weights = torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0]).to(device)
 
     #class_weights = torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0]).to(device)
