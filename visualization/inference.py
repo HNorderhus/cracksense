@@ -92,7 +92,7 @@ def run_inference(model, image_path, mode, save_figure):
         plt.tight_layout()
         if save_figure:
             image_name = extract_image_name(image_path)
-            plt.savefig(f"results/{image_name}_old_baseline.png")
+            plt.savefig(f"results/{image_name}_90percent.png")
             #print("Saved resulting plot")
         #plt.show()
         plt.close()
@@ -129,7 +129,7 @@ def args_preprocess():
     parser.add_argument("--save_figure", type=bool,
                         default=False, help="Save the resulting figure")
     parser.add_argument("--pruned_model", help='Path to the pruned model file')
-    parser.add_argument("--use_pruned",  help='Flag to use the pruned model')
+    parser.add_argument("--use_pruned",  action="store_true", help='Flag to use the pruned model')
 
     args = parser.parse_args()
 

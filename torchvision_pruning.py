@@ -136,7 +136,7 @@ if __name__ == "__main__":
     successful = []
     unsuccessful = []
 
-    model = deeplab_model.initialize_model(8, keep_feature_extract=False, print_model=False)
+    model = deeplab_model.initialize_model(8, keep_feature_extract=False)
     if args.state_dict:
         model.load_state_dict(torch.load(args.state_dict))
 

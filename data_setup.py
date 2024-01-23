@@ -11,7 +11,7 @@ from skimage.morphology import disk, thin
 
 
 class DataLoaderSegmentation(Dataset):
-    def __init__(self, folder_path, transform=None, dilate_cracks=True):
+    def __init__(self, folder_path, transform=None):
 
         # from pathlib import Path
 
@@ -19,14 +19,14 @@ class DataLoaderSegmentation(Dataset):
         self.mask_files = glob.glob(os.path.join(folder_path, 'Labels_grayscale', '*.*'))
         self.transform = transform
 
-        self.dilate_cracks_flag = dilate_cracks
+        #self.dilate_cracks_flag = dilate_cracks
 
-    def dilate_cracks(self, mask):
-        # Define a circular kernel for dilation
-        kernel_size = 3
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
-        dilated_mask = cv2.dilate(mask, kernel, iterations=1)
-        return dilated_mask
+    # def dilate_cracks(self, mask):
+    #     # Define a circular kernel for dilation
+    #     kernel_size = 3
+    #     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+    #     dilated_mask = cv2.dilate(mask, kernel, iterations=1)
+    #     return dilated_mask
 
     def boundary_tolerance(self, lab, crack_class=6, tolerance=2, ignore_index=7):
         """Create ignore index at the boundary of areal defects."""
@@ -52,11 +52,7 @@ class DataLoaderSegmentation(Dataset):
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
         # Check if the mask contains crack pixels (class 6)
-        if self.dilate_cracks_flag and np.any(mask == 6):
-            # Perform dilation on the mask (cracks) only when there are crack pixels in the mask
-            mask = self.dilate_cracks(mask)
-            mask = self.boundary_tolerance(np.array(mask))
-        elif np.any(mask == 6):
+        if np.any(mask == 6):
             mask = self.boundary_tolerance(np.array(mask))
 
         if self.transform is not None:

@@ -9,6 +9,23 @@ import argparse
 import numpy as np
 import random
 
+
+def load_model(args):
+    if args.pruned_model:
+        model_path = f'results/models/{args.pruned_model}'
+        model = torch.load(model_path)
+        # Conditionally set requires_grad based on the train_pruned argument
+        if args.train_pruned:
+            for param in model.backbone.parameters():
+                param.requires_grad = True
+    else:
+        model = deeplab_model.initialize_model(num_classes=8, keep_feature_extract=args.keep_feature_extract)
+        # If pretrained weights are to be loaded
+        if args.load_pretrained_weights:
+            model.load_state_dict(torch.load(f'results/models/{args.load_pretrained_weights}'))
+
+    return model
+
 def set_seed(seed_value):
     """Set seed for reproducibility."""
     torch.manual_seed(seed_value)
@@ -19,15 +36,15 @@ def set_seed(seed_value):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-def main(train_dir, val_dir, epochs, name, augmentation, lr, dilate_cracks, double_crack_weight, pruned_model, train_pruned):
-    NUM_EPOCHS = epochs
-    LEARNING_RATE = lr
+def main(train_dir, val_dir, name, model):
+    NUM_EPOCHS = 400
+    LEARNING_RATE = 0.001
 
     NUM_WORKERS = os.cpu_count()
     NUM_CLASSES = 8
     BATCH_SIZE = 16
 
-    #set_seed(42)  # You can choose any number as your seed value.
+    #set_seed(42)
 
     # Setup target device
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -35,8 +52,7 @@ def main(train_dir, val_dir, epochs, name, augmentation, lr, dilate_cracks, doub
 
     print("Initializing Datasets and Dataloaders...")
 
-    if augmentation == "strong":
-        train_transform = A.Compose(
+    train_transform = A.Compose(
             [
                 A.LongestMaxSize(max_size=768, interpolation=1),
                 A.RandomCrop(512, 512, p=1),
@@ -65,35 +81,6 @@ def main(train_dir, val_dir, epochs, name, augmentation, lr, dilate_cracks, doub
                 ToTensorV2(),
             ]
         )
-    else:
-        train_transform = A.Compose(
-            [
-                A.LongestMaxSize(max_size=768, interpolation=1),
-                A.RandomCrop(512, 512),
-                A.PadIfNeeded(min_height=512, min_width=512),
-                A.VerticalFlip(p=0.3),
-                A.HorizontalFlip(p=0.3),
-                A.RandomRotate90(p=0.3),
-                A.OneOf([
-                    A.ElasticTransform(alpha=90, sigma=90 * 0.05, alpha_affine=90 * 0.03, p=0.25),
-                    A.GridDistortion(p=0.25),
-                    A.CoarseDropout(max_holes=6, max_height=24, max_width=24, min_holes=2, min_height=8, min_width=8,
-                                    fill_value=0, p=0.25),
-                ], p=0.3),
-                A.OneOf([
-                    A.HueSaturationValue(hue_shift_limit=15, sat_shift_limit=20, val_shift_limit=15, p=0.25),
-                    A.ShiftScaleRotate(shift_limit=0.15, scale_limit=0.15, rotate_limit=20, p=0.25),
-                    A.CLAHE(p=0.25),
-                ], p=0.3),
-                A.OneOf([
-                    A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, p=0.25),
-                    A.RandomBrightnessContrast(brightness_limit=0.15, contrast_limit=0.15, p=0.25),
-                    A.Blur(blur_limit=(3, 5), p=0.25),
-                ], p=0.3),
-                A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-                ToTensorV2(),
-            ]
-        )
 
     val_transform = A.Compose(
         [
@@ -108,28 +95,27 @@ def main(train_dir, val_dir, epochs, name, augmentation, lr, dilate_cracks, doub
     #train_data = data_setup.DataLoaderSegmentation(folder_path=train_dir, transform=train_transform)
     #val_data = data_setup.DataLoaderSegmentation(folder_path=val_dir, transform=val_transform)
 
-    train_data = data_setup.DataLoaderSegmentation(train_dir, transform=train_transform, dilate_cracks=dilate_cracks)
-    val_data = data_setup.DataLoaderSegmentation(val_dir, transform=val_transform, dilate_cracks=dilate_cracks)
+    train_data = data_setup.DataLoaderSegmentation(train_dir, transform=train_transform)
+    val_data = data_setup.DataLoaderSegmentation(val_dir, transform=val_transform)
 
     train_dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
     val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
 
     print("Initializing Model...")
 
-    if pruned_model:
-        model_path = f'results/models/{pruned_model}'
-        model = torch.load(model_path)
 
-        for param in model.backbone.parameters():
-            param.requires_grad = False
-    else:
-        model = deeplab_model.initialize_model(NUM_CLASSES, keep_feature_extract=True, print_model=False)
+    # if pruned_model:
+    #     model_path = f'results/models/{pruned_model}'
+    #     model = torch.load(model_path)
+    #
+    #     for param in model.backbone.parameters():
+    #         param.requires_grad = False
+    # else:
+    #     model = deeplab_model.initialize_model(NUM_CLASSES, keep_feature_extract=True, print_model=False)
+    #
+    # # Set loss and optimizer
+    class_weights = torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0]).to(device)
 
-    # Set loss and optimizer
-    if double_crack_weight:
-        class_weights = torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0]).to(device)
-    else:
-        class_weights = torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).to(device)
     #class_weights = torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0]).to(device)
     loss_fn = torch.nn.CrossEntropyLoss(ignore_index=7, weight=class_weights)
     optimizer = torch.optim.Adam(model.parameters(),
@@ -157,19 +143,19 @@ def args_preprocess():
     parser = argparse.ArgumentParser()
     parser.add_argument("train_dir", help='Directory path, should contain train/Images, train/Labels_grayscale')
     parser.add_argument("val_dir", help='Directory path, should contain val/Images and val/Labels_grayscale')
-    parser.add_argument("epochs", type=int, help="Number of epochs to train for")
     parser.add_argument("name", type=str, help="Name of the current training variant")
-    parser.add_argument("--augmentation", type=str, help="Strong or Weak", default="strong")
-    parser.add_argument("--lr", type=float, help="Name of the current training variant", default=0.001)
-    parser.add_argument("--dilate_cracks", type=bool, default=True, help="Whether to dilate cracks or not")
-    parser.add_argument("--double_crack_weight", type=bool, default=False,
-                        help="Whether to double the weight of crack class")
-    parser.add_argument("--pruned_model", type=str, help="Load the pruned model"),
-    parser.add_argument("--train_pruned", type=bool, default=False)
+    parser.add_argument("--pruned_model", type=str, help="Load the pruned model")
+    parser.add_argument("--train_pruned", type=bool, default=False, help="Train the entire pruned model")
+    parser.add_argument("--keep_feature_extract", type=bool, default=True, help="Keep feature extraction layers frozen")
+    parser.add_argument("--load_pretrained_weights", type=str, help="Name of the trained baseline model")
 
     args = parser.parse_args()
-    main(args.train_dir, args.val_dir, args.epochs, args.name, args.augmentation, args.lr,  args.dilate_cracks,
-         args.double_crack_weight, args.pruned_model, args.train_pruned)
+
+    model = load_model(args)
+
+    main(args.train_dir, args.val_dir, args.name, model)
+
+
 if __name__ == '__main__':
     args_preprocess()
 
