@@ -11,7 +11,7 @@ import deeplab_model
 
 
 def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio, p_value, importance_type,
-             iterative_steps, prune_layers, pruning_ratio_layer1, pruning_ratio_layer2):
+             iterative_steps):
     ori_size = tp.utils.count_params(model)
     model.eval()
 
@@ -40,27 +40,14 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
 
     iterative_steps = iterative_steps
 
-    if prune_layers:
-        pruner = tp.pruner.MagnitudePruner(
-            model,
-            example_inputs=example_inputs,
-            importance=importance,
-            iterative_steps=iterative_steps,
-            pruning_ratio=pruning_ratio,
-            pruning_ratio_dict={model.backbone.layer1: pruning_ratio_layer1, model.backbone.layer2: pruning_ratio_layer2},
-            global_pruning=False,
-            ignored_layers=ignored_layers,
-        )
-    else:
-        pruner = tp.pruner.MagnitudePruner(
+    pruner = tp.pruner.MagnitudePruner(
             model,
             example_inputs=example_inputs,
             importance=importance,
             iterative_steps=iterative_steps,
             pruning_ratio=pruning_ratio,
             global_pruning=False,
-            ignored_layers=ignored_layers,
-        )
+            ignored_layers=ignored_layers,)
 
     #########################################
     # Pruning

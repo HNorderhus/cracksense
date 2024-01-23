@@ -125,10 +125,10 @@ def train(model: torch.nn.Module,
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_counter = 0
-                if train_pruned:
-                    save_model(model=model, target_dir="results/models", model_name=f"{name}_weights.pth")
-                else:
-                    save_model(model=model, target_dir="results/models", model_name=f"{name}.pth")
+                # if train_pruned:
+                save_model(model=model, target_dir="results/models", model_name=f"{name}_weights.pth")
+                # else:
+                #     save_model(model=model, target_dir="results/models", model_name=f"{name}.pth")
 
             else:
                 patience_counter += 1

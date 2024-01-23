@@ -15,9 +15,12 @@ def load_model(args):
         model_path = f'results/models/{args.pruned_model}'
         model = torch.load(model_path)
         # Conditionally set requires_grad based on the train_pruned argument
-        if args.train_pruned:
+        if args.train_pruned_fully:
             for param in model.backbone.parameters():
                 param.requires_grad = True
+        else:
+            for param in model.backbone.parameters():
+                param.requires_grad = False
     else:
         model = deeplab_model.initialize_model(num_classes=8, keep_feature_extract=args.keep_feature_extract)
         # If pretrained weights are to be loaded
@@ -131,7 +134,7 @@ def args_preprocess():
     parser.add_argument("val_dir", help='Directory path, should contain val/Images and val/Labels_grayscale')
     parser.add_argument("name", type=str, help="Name of the current training variant")
     parser.add_argument("--pruned_model", type=str, help="Load the pruned model")
-    parser.add_argument("--train_pruned", type=bool, default=False, help="Train the entire pruned model")
+    parser.add_argument("--train_pruned_fully", type=bool, default=False, help="Train the entire pruned model")
     parser.add_argument("--keep_feature_extract", type=bool, default=True, help="Keep feature extraction layers frozen")
     parser.add_argument("--load_pretrained_weights", type=str, help="Name of the trained baseline model")
 
