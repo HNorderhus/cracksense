@@ -4,7 +4,7 @@
 
 ## Overview
 
-This repository hosts the Master's thesis project "CrackSense: A Pruned Neural Network Approach for Crack Detection on Embedded Devices." 
+This repository hosts the Master's thesis project "CrackSense: A Pruned Neural Network Approach for Crack Detection on Embedded Devices." at the Bauhaus-university Weimar at the chair for Computer Vision.
 
 The project emphasizes training DeepLabV3-Resnet101 models on the S2DS dataset for crack detection, with a unique focus on model pruning—both iteratively and in one shot—based on various mathematical importance criteria such as L1 Norm, L2 Norm, and Taylor Expansion. Additionally, the repository includes utilities for model inference, performance evaluation, and detailed class-wise metrics exportation to Excel, facilitating comprehensive analysis and application in embedded device environments.
 
