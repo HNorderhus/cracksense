@@ -7,29 +7,29 @@ import numpy as np
 import cv2
 import random
 from utils import visualize_data
-from skimage.morphology import disk, thin
+from skimage.morphology import disk
 
 
 class DataLoaderSegmentation(Dataset):
     def __init__(self, folder_path, transform=None):
-
-        # from pathlib import Path
-
         self.img_files = glob.glob(os.path.join(folder_path, 'Images', '*.*'))
         self.mask_files = glob.glob(os.path.join(folder_path, 'Labels_grayscale', '*.*'))
         self.transform = transform
 
-        #self.dilate_cracks_flag = dilate_cracks
-
-    # def dilate_cracks(self, mask):
-    #     # Define a circular kernel for dilation
-    #     kernel_size = 3
-    #     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
-    #     dilated_mask = cv2.dilate(mask, kernel, iterations=1)
-    #     return dilated_mask
 
     def boundary_tolerance(self, lab, crack_class=6, tolerance=2, ignore_index=7):
-        """Create ignore index at the boundary of areal defects."""
+        """
+        Applies boundary tolerance to label images, setting pixels within a specified tolerance from a boundary to an ignore index.
+
+        Parameters:
+            lab (numpy.ndarray): The label image array.
+            crack_class (int, optional): The class identifier for cracks. Defaults to 6.
+            tolerance (int, optional): The pixel tolerance from boundaries where labels are set to ignore_index. Defaults to 2.
+            ignore_index (int, optional): The label value to set for ignored boundary regions. Defaults to 7.
+
+        Returns:
+            numpy.ndarray: The modified label image with boundary tolerance applied.
+        """
         # exclude crack from tolerance
         lab_orig = np.copy(lab)
         lab = np.where(lab != 6, 0, lab)  # Changed lab == 1 to lab == 6
@@ -67,7 +67,7 @@ class DataLoaderSegmentation(Dataset):
     def __len__(self):
         return len(self.img_files)
 
-
+# Debug mode setup for testing and visualization
 debug_mode = False
 
 if debug_mode:
@@ -97,8 +97,6 @@ if debug_mode:
 
     dataset = DataLoaderSegmentation(folder_path, transform=data_transform)
     # dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
-
-    print(len(dataset))
 
     num_samples_to_display = 10
     sample_indices = random.sample(range(len(dataset)), num_samples_to_display)

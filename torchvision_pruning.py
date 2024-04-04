@@ -1,45 +1,56 @@
 import argparse
 import sys
 import traceback
-
 import torch
 import torch.nn as nn
 import torch_pruning as tp
 from tqdm import tqdm
-
 import deeplab_model
 
 
 def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio, p_value, importance_type,
              iterative_steps):
+    """
+    Prune the provided model based on the specified parameters, inspired by the structural pruning method introduced by Fang et al. in "Depgraph: Towards any structural pruning" (CVPR 2023).
+
+    Parameters:
+        model (torch.nn.Module): The model to be pruned.
+        example_inputs (torch.Tensor): Dummy input for the model to infer the computational graph.
+        output_transform (callable): Function to transform the output for loss calculation, if necessary.
+        model_name (str): Name of the model for logging.
+        pruning_ratio (float): The ratio of parameters to prune.
+        p_value (int): The 'p' value for MagnitudeImportance, if used.
+        importance_type (str): Type of importance ('Taylor' or 'Magnitude') to be used for pruning.
+        iterative_steps (int): Number of iterative steps to prune.
+
+    Returns:
+        None
+
+    Reference:
+        Fang, Gongfan et al. "Depgraph: Towards any structural pruning." Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 2023.
+    """
     ori_size = tp.utils.count_params(model)
     model.eval()
 
+    # Set gradients for all parameters to True and collect layers to ignore
     ignored_layers = []
     for p in model.parameters():
         p.requires_grad_(True)
-    #########################################
-    # Ignore unprunable modules
-    #########################################
+
+    #exclude final layer from the pruning
     for m in model.modules():
         if isinstance(m, torch.nn.modules.conv._ConvNd) and m.out_channels == 8:
             ignored_layers.append(m)
 
-    #########################################
-    # Build network pruners
-    #########################################
-
+    # Select importance criterion
     if importance_type == "Taylor":
         importance = tp.importance.TaylorImportance()
     elif importance_type == "Magnitude":
-        # For Magnitude, you can use GroupNormImportance as it acts as a generalized group-level magnitude importance measure.
-        # The 'p' parameter determines the norm degree.
         importance = tp.importance.MagnitudeImportance(p=p_value)
     else:
         raise ValueError("Unsupported importance type. Choose 'Taylor' or 'Magnitude'.")
 
-    iterative_steps = iterative_steps
-
+    # Initialize pruner
     pruner = tp.pruner.MagnitudePruner(
             model,
             example_inputs=example_inputs,
@@ -49,12 +60,8 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
             global_pruning=False,
             ignored_layers=ignored_layers,)
 
-    #########################################
-    # Pruning
-    #########################################
+    # Pre-pruning status
     print("==============Before pruning=================")
-    # print("Model Name: {}".format(model_name))
-    # print(model)
 
     layer_channel_cfg = {}
     for module in model.modules():
@@ -65,9 +72,8 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
             elif isinstance(module, nn.Linear):
                 layer_channel_cfg[module] = module.out_features
 
-    # Taylor Importance requires gradient calculation
+    # If Taylor importance, need to calculate gradients with respect to output
     if importance_type == "Taylor":
-        # Calculate gradients for importance estimation
         model.zero_grad()
         output = model(example_inputs)
         if output_transform:
@@ -75,15 +81,11 @@ def my_prune(model, example_inputs, output_transform, model_name, pruning_ratio,
         loss = output.sum()
         loss.backward()
 
-    for i in tqdm(range(iterative_steps)):
+    for _ in tqdm(range(iterative_steps)):
         pruner.step()
 
+    # Post-pruning status
     print("==============After pruning=================")
-    # print(model)
-
-    #########################################
-    # Testing
-    #########################################
     with torch.no_grad():
         if isinstance(example_inputs, dict):
             out = model(**example_inputs)
@@ -114,7 +116,6 @@ if __name__ == "__main__":
     parser.add_argument("--state_dict", type=str, help="Path to the state_dict file")
     parser.add_argument("--keep_feature_extract", type=bool, default=True, help="Keep feature extraction layers frozen")
 
-
     args = parser.parse_args()
 
     successful = []
@@ -124,7 +125,7 @@ if __name__ == "__main__":
     if args.state_dict:
         model.load_state_dict(torch.load(args.state_dict))
 
-    tensor_shape = (16, 3, 512, 512)
+    tensor_shape = (8, 3, 512, 512)
     example_inputs = torch.empty(tensor_shape)
 
     output_transform = lambda x: x["out"]
@@ -139,15 +140,12 @@ if __name__ == "__main__":
         print(f"Error type: {type(e).__name__}")
         print(f"Error message: {e}")
         traceback.print_exc()
-
         unsuccessful.append("deeplabv3")
+
     print("Successful Pruning: %d Models\n" % (len(successful)), successful)
     print("")
     print("Unsuccessful Pruning: %d Models\n" % (len(unsuccessful)), unsuccessful)
-
     print("Save pruned model")
     torch.save(model, f'results/models/{args.model_name}_model.pth')
-
     sys.stdout.flush()
-
     print("Finished!")

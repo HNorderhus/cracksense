@@ -8,6 +8,20 @@ from utils import save_model, plt_to_tensor, initialize_metrics, calculate_metri
 
 
 def train_step(model, dataloader, loss_fn, optimizer, device, metrics):
+    """
+       Executes a single training step over the entire dataset.
+
+       Parameters:
+           model (torch.nn.Module): The model to be trained.
+           dataloader (torch.utils.data.DataLoader): DataLoader for the training dataset.
+           loss_fn (callable): The loss function.
+           optimizer (torch.optim.Optimizer): Optimizer for updating model parameters.
+           device (torch.device): Device to which tensors will be moved (e.g., "cpu", "cuda").
+           metrics (dict): Dictionary containing metric functions to be evaluated.
+
+       Returns:
+           tuple: Contains average training loss, accuracy, clt-IoU accuracy, and confusion matrix.
+       """
     model.train()
     running_loss = 0.0
     running_iou_means, running_ltiou_means = [], []
@@ -35,6 +49,20 @@ def train_step(model, dataloader, loss_fn, optimizer, device, metrics):
 
 
 def val_step(model, dataloader, loss_fn, device, metrics):
+    """
+        Executes a validation step over the entire dataset.
+
+        Parameters:
+            model (torch.nn.Module): The model being evaluated.
+            dataloader (torch.utils.data.DataLoader): DataLoader for the validation dataset.
+            loss_fn (callable): The loss function used for validation.
+            device (torch.device): Device to which tensors will be moved (e.g., "cpu", "cuda").
+            metrics (dict): Dictionary containing metric functions to be evaluated during validation.
+
+        Returns:
+            tuple: Contains average validation loss, accuracy, clt-IoU accuracy, confusion matrix,
+                   precision, recall, and F1 score.
+        """
     model.eval()
     running_iou_means, running_ltiou_means = [], []
     val_loss = 0
@@ -125,11 +153,7 @@ def train(model: torch.nn.Module,
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_counter = 0
-                # if train_pruned:
                 save_model(model=model, target_dir="results/models", model_name=f"{name}_weights.pth")
-                # else:
-                #     save_model(model=model, target_dir="results/models", model_name=f"{name}.pth")
-
             else:
                 patience_counter += 1
                 print(f"Epoch {epoch + 1}: No improvement in validation loss.")

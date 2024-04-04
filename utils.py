@@ -19,11 +19,24 @@ from torchmetrics.classification import BinaryJaccardIndex, MulticlassJaccardInd
 from torchvision import transforms
 
 
-# -------------------------------------------
-# functions to calculate IoU
-# -------------------------------------------
 def transform2lines(output, target, tol=4):
-    """ Transform predictions and labels to thinned representation for line-base, tolerant IoU. """
+    """
+        Transform predictions and labels to a thinned representation for line-based, tolerant IoU calculation.
+        This method is inspired by the approach described by Benz and Rodehorst in their 2022 paper on structural defect detection.
+
+        Parameters:
+            output (tensor): The predicted segmentation mask.
+            target (tensor): The ground truth segmentation mask.
+            tol (int): The tolerance level for dilating the thinned lines.
+
+        Returns:
+            tuple: The transformed prediction and target masks ready for tolerant IoU calculation.
+
+        Reference:
+            Benz, Christian and Rodehorst, Volker. "Image-Based Detection of Structural Defects Using Hierarchical Multi-scale Attention."
+            DAGM German Conference on Pattern Recognition. Springer, 2022.
+        """
+
     # thin predictions and labels
     output_thin = np.uint8(thin(output.cpu().numpy()))
     target_thin = np.uint8(thin(target.cpu().numpy()))
@@ -42,7 +55,23 @@ def transform2lines(output, target, tol=4):
 
 
 def ltIoU(pred, target, tol=4):
-    """ Computes line-based, tolerant intersection-over-union (IoU). """
+    """
+        Computes the line-based, tolerant intersection-over-union (IoU) metric, based on a method inspired by Benz and Rodehorst's work.
+        This function specifically caters to the evaluation of structural defect detection models.
+
+        Parameters:
+            pred (tensor): The predicted segmentation mask.
+            target (tensor): The ground truth segmentation mask.
+            tol (int): The tolerance level for dilating the thinned lines.
+
+        Returns:
+            float: The computed line-based, tolerant IoU value.
+
+        Reference:
+            Benz, Christian and Rodehorst, Volker. "Image-Based Detection of Structural Defects Using Hierarchical Multi-scale Attention."
+            DAGM German Conference on Pattern Recognition. Springer, 2022.
+        """
+
     pred = pred.cpu()
     target = target.cpu()
 
@@ -118,31 +147,26 @@ def calculate_metrics(preds, labels, metrics):
     return iou_values, lt_iou
 
 
-# -------------------------------------------
-# functions to document and save model
-# -------------------------------------------
 def create_writer(experiment_name: str,
                   model_name: str,
                   extra: str = None) -> torch.utils.tensorboard.writer.SummaryWriter():
     """
-    The log directory structure is as follows:
-
-    results/runs/YYYY-MM-DD/experiment_name/model_name[/extra]
+    Creates a tensorboard writer for logging experiments. The log directory structure is organized by date, experiment name, model name, and an optional extra identifier.
 
     Args:
         experiment_name (str): The name of the experiment.
-        model_name (str): The name of the model.
-        extra (str, optional): An optional extra identifier for further categorization within
-            the log directory. Defaults to None.
+        model_name (str): The name of the model being used.
+        extra (str, optional): An additional string to further specify the logs. Defaults to None.
 
     Returns:
-        torch.utils.tensorboard.writer.SummaryWriter: A SummaryWriter instance configured to
-        log data to the specified directory.
+        SummaryWriter: An instance of `torch.utils.tensorboard.writer.SummaryWriter` configured for the specified log directory.
+
+    Reference:
+        Bourke, Daniel. "Learn PyTorch for Deep Learning". Available at: https://github.com/mrdbourke/pytorch-deep-learning
     """
 
     # Get timestamp of current date (all experiments on certain day live in same folder)
     timestamp = datetime.now().strftime("%Y-%m-%d")  # returns current date in YYYY-MM-DD format
-
     if extra:
         # Create log directory path
         log_dir = os.path.join("results/runs", timestamp, experiment_name, model_name, extra)
@@ -157,19 +181,24 @@ def create_writer(experiment_name: str,
 def save_model(model: torch.nn.Module,
                target_dir: str,
                model_name: str):
-    """Saves a PyTorch model to a target directory.
-
-    Args:
-    model: A target PyTorch model to save.
-    target_dir: A directory for saving the model to.
-    model_name: A filename for the saved model. Should include
-      either ".pth" or ".pt" as the file extension.
-
-    Example usage:
-    save_model(model=model_0,
-               target_dir="models",
-               model_name="05_going_modular_tingvgg_model.pth")
     """
+        Saves a PyTorch model's `state_dict` to a specified directory with the given model name. The model is saved with either a ".pth" or ".pt" file extension.
+
+        Args:
+            model (torch.nn.Module): The model to be saved.
+            target_dir (str): The directory path where the model should be saved.
+            model_name (str): The name of the file to save the model as. Must end with '.pth' or '.pt'.
+
+        Raises:
+            AssertionError: If `model_name` doesn't end with '.pth' or '.pt'.
+
+        Example:
+            save_model(model=my_model, target_dir="saved_models", model_name="best_model.pth")
+
+        Reference:
+            Bourke, Daniel. "Learn PyTorch for Deep Learning". Available at: https://github.com/mrdbourke/pytorch-deep-learning
+        """
+
     # Create target directory
     target_dir_path = Path(target_dir)
     target_dir_path.mkdir(parents=True,
@@ -185,9 +214,6 @@ def save_model(model: torch.nn.Module,
                f=model_save_path)
 
 
-# ------------------------------------------
-# functions to convert RGB labels to grayscale
-# -------------------------------------------
 def plt_to_tensor(plt):
     # Save the Matplotlib figure to a BytesIO object
     buf = io.BytesIO()
@@ -270,9 +296,6 @@ def convert_rgb_to_grayscale(input_dir, output_dir):
             cv2.imwrite(output_path, result)
 
 
-# -------------------------------------------
-# visualize the augmented images from the dataloader
-# -------------------------------------------
 def visualize_data(images, masks):
     num_samples = len(images)
     sample_indices = random.sample(range(num_samples), 10)  # Select 10 random samples

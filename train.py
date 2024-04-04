@@ -2,7 +2,7 @@ import os
 import torch
 import data_setup, deeplab_model, engine
 from torch.utils.data import DataLoader
-from utils import create_writer,save_model
+from utils import create_writer
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import argparse
@@ -11,6 +11,7 @@ import random
 
 
 def load_model(args):
+    """Load a model, either a pre-pruned model or initialize a new one based on arguments."""
     if args.pruned_model:
         model_path = f'results/models/{args.pruned_model}'
         model = torch.load(model_path)
@@ -29,6 +30,7 @@ def load_model(args):
 
     return model
 
+
 def set_seed(seed_value):
     """Set seed for reproducibility."""
     torch.manual_seed(seed_value)
@@ -39,14 +41,17 @@ def set_seed(seed_value):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
+
 def main(train_dir, val_dir, name, model):
+    """Main training routine."""
     NUM_EPOCHS = 400
     LEARNING_RATE = 0.001
 
     NUM_WORKERS = os.cpu_count()
     NUM_CLASSES = 8
-    BATCH_SIZE = 16
+    BATCH_SIZE = 8
 
+    #uncomment to use seed
     #set_seed(42)
 
     # Setup target device
@@ -55,8 +60,7 @@ def main(train_dir, val_dir, name, model):
 
     print("Initializing Datasets and Dataloaders...")
 
-    train_transform = A.Compose(
-            [
+    train_transform = A.Compose([
                 A.LongestMaxSize(max_size=768, interpolation=1),
                 A.RandomCrop(512, 512, p=1),
                 A.PadIfNeeded(min_height=512, min_width=512),
@@ -81,31 +85,23 @@ def main(train_dir, val_dir, name, model):
                     A.ColorJitter(p=0.33),
                 ], p=0.7),
                 A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-                ToTensorV2(),
-            ]
-        )
+                ToTensorV2(),])
 
-    val_transform = A.Compose(
-        [
+    val_transform = A.Compose([
             A.LongestMaxSize(max_size=768, interpolation=1),
             A.CenterCrop(512, 512),
             A.PadIfNeeded(min_height=512, min_width=512),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-            ToTensorV2(),
-        ]
-    )
+            ToTensorV2(),])
 
     train_data = data_setup.DataLoaderSegmentation(train_dir, transform=train_transform)
     val_data = data_setup.DataLoaderSegmentation(val_dir, transform=val_transform)
-
     train_dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
     val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
 
     print("Initializing Model...")
 
     class_weights = torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0]).to(device)
-
-    #class_weights = torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0]).to(device)
     loss_fn = torch.nn.CrossEntropyLoss(ignore_index=7, weight=class_weights)
     optimizer = torch.optim.Adam(model.parameters(),
                                  lr=LEARNING_RATE)
@@ -127,6 +123,7 @@ def main(train_dir, val_dir, name, model):
                  name=name,
                  train_pruned=False)
 
+
 def args_preprocess():
     # Command line arguments
     parser = argparse.ArgumentParser()
@@ -139,12 +136,9 @@ def args_preprocess():
     parser.add_argument("--load_pretrained_weights", type=str, help="Name of the trained baseline model")
 
     args = parser.parse_args()
-
     model = load_model(args)
-
     main(args.train_dir, args.val_dir, args.name, model)
 
 
 if __name__ == '__main__':
     args_preprocess()
-
