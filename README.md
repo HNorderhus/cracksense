@@ -1,63 +1,58 @@
 # DeepLabV3Resnet101 Crack Segmentation Project
 
-This project is focused on crack segmentation using the DeepLabV3Resnet101 architecture using the S2DS dataset.
-
 ![inferenced crack](imgs/608_result_ignore.png)
 
 ## Overview
 
-- **DeepLabV3Resnet101**: We use the DeepLabV3Resnet101 architecture, a state-of-the-art deep learning model for image segmentation, as the backbone of this project.
+This repository hosts the Master's thesis project "CrackSense: A Pruned Neural Network Approach for Crack Detection on Embedded Devices." 
 
+The project emphasizes training DeepLabV3-Resnet101 models on the S2DS dataset for crack detection, with a unique focus on model pruning—both iteratively and in one shot—based on various mathematical importance criteria such as L1 Norm, L2 Norm, and Taylor Expansion. Additionally, the repository includes utilities for model inference, performance evaluation, and detailed class-wise metrics exportation to Excel, facilitating comprehensive analysis and application in embedded device environments.
+
+## How to get started
+
+Clone the repository and install the environment.
+
+```
+conda env create -f environment.yml
+```
 
 ## Dataset structure
+
+The dataset is expected to be structured in the following way:
 
 ```
 ├── test
 │   ├── Images
 │   │   ├── 678.png
-│   │   ├── 679.png
-│   │   ├── 680.png
 │   │   ...
 │   ├── Labels_grayscale
 │   │   ├── 678.png
-│   │   ├── 679.png
-│   │   ├── 680.png
 │   │   ...
 │   └── Labels_RGB
 │       ├── 678.png
-│       ├── 679.png
-│       ├── 680.png
 │       ...
 ├── train
 │   ├── Images
 │   │   ├── 000.png
-│   │   ├── 001.png
-│   │   ├── 002.png
 │   │   ...
 │   ├── Labels_grayscale
 │   │   ├── 000.png
-│   │   ├── 001.png
-│   │   ├── 002.png
 │   │   ...
 │   └── Labels_RGB
 │       ├── 000.png
-│       ├── 001.png
-│       ├── 002.png
 │       ...
 └── val
     ├── Images
     │   ├── 563.png
-    │   ├── 564.png
-    │   ├── 565.png
     │   ...
     ├── Labels_grayscale
     │   ├── 563.png
-    │   ├── 564.png
-    │   ├── 565.png
     │   ...
     └── Labels_RGB
         ├── 563.png
-        ├── 564.png
-        ├── 565.png
         ...
 ```
+
+## How to use
+
+
