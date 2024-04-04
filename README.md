@@ -1,4 +1,4 @@
-# DeepLabV3Resnet101 Crack Segmentation Project
+# Cracksense
 
 ![inferenced crack](imgs/608_result_ignore.png)
 
